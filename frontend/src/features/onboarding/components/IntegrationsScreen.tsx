@@ -3,6 +3,11 @@ import OnboardingLogo from './OnboardingLogo';
 import IntegrationCard from './IntegrationCard';
 import { integrations } from '../data/integrations';
 import { useOnboardingStore } from '../store/onboardingStore';
+import {
+  startWhoopOAuth,
+  startLinearOAuth,
+  connectGithubWithPat,
+} from '../api/integrationsApi';
 
 export default function IntegrationsScreen() {
   const [isVisible, setIsVisible] = useState(false);
@@ -22,12 +27,37 @@ export default function IntegrationsScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleToggleConnection = (id: string) => {
+  const handleToggleConnection = async (id: string) => {
     if (connectedIntegrations.includes(id)) {
       disconnectIntegration(id);
-    } else {
-      connectIntegration(id);
+      return;
     }
+
+    if (id === 'whoop') {
+      startWhoopOAuth();
+      return;
+    }
+
+    if (id === 'linear') {
+      startLinearOAuth();
+      return;
+    }
+
+    if (id === 'github') {
+      const token = window.prompt('Enter your GitHub Personal Access Token (repo scope required):');
+      if (!token) return;
+
+      try {
+        await connectGithubWithPat(token.trim());
+        connectIntegration(id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to connect GitHub.';
+        window.alert(message);
+      }
+      return;
+    }
+
+    connectIntegration(id);
   };
 
   const handleFinishClick = () => {

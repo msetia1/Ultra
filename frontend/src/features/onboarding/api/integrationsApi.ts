@@ -27,3 +27,19 @@ export function startGithubOAuth(): void {
   withOnboardingReturnHint();
   window.location.href = `${API_BASE_URL}/auth/github/start`;
 }
+
+export async function connectGithubWithPat(personalAccessToken: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/github/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ personal_access_token: personalAccessToken }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.detail ?? 'Failed to connect GitHub';
+    throw new Error(message);
+  }
+
+  return payload;
+}

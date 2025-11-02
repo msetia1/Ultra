@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+from urllib.parse import quote_plus
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +36,13 @@ from integrations.linear_service import (
 load_dotenv()
 
 app = FastAPI(title="AI Scheduling Agent API")
+
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+
+
+def _frontend_redirect(path: str) -> RedirectResponse:
+	path_with_leading = path if path.startswith("/") else f"/{path}"
+	return RedirectResponse(url=f"{FRONTEND_BASE_URL}{path_with_leading}")
 
 # CORS middleware for frontend
 app.add_middleware(
@@ -144,10 +152,11 @@ def whoop_callback(code: str, state: str):
 			# Log the error but don't block the redirect flow
 			print(f"Error during WHOOP backfill: {backfill_err}")
 		# Redirect back to frontend with success
-		return RedirectResponse(url="/?whoop=connected")
+		return _frontend_redirect("/onboarding?whoop=connected")
 	except Exception as e:
 		# Redirect back to frontend with error
-		return RedirectResponse(url=f"/?error={str(e)}")
+		error_value = quote_plus(str(e))
+		return _frontend_redirect(f"/onboarding?error={error_value}")
 
 
 # @app.get("/whoop/cycles")
@@ -288,10 +297,11 @@ def linear_callback(code: str, state: str):
 	try:
 		tokens = exchange_linear_tokens(code, TEST_USER_ID)
 		# Redirect back to frontend with success
-		return RedirectResponse(url="/?linear=connected")
+		return _frontend_redirect("/onboarding?linear=connected")
 	except Exception as e:
 		# Redirect back to frontend with error
-		return RedirectResponse(url=f"/?error={str(e)}")
+		error_value = quote_plus(str(e))
+		return _frontend_redirect(f"/onboarding?error={error_value}")
 
 
 # Linear data endpoints
