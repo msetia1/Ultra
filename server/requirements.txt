@@ -6,7 +6,7 @@ charset-normalizer==3.4.4
 cryptography==46.0.3
 deepdiff==8.1.1
 deprecation==2.1.0
-fastapi==0.115.0
+fastapi==0.115.4
 h11==0.16.0
 h2==4.3.0
 hpack==4.1.0

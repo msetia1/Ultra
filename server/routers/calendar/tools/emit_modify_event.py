@@ -5,7 +5,7 @@ import json
 import re
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from deepdiff import DeepDiff
 from ..models import CalendarModifyEventPatch, EventDayLocator, EventFieldPatch
 from ..services.openrouter_client import get_openrouter_client

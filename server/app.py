@@ -41,6 +41,14 @@ load_dotenv()
 
 app = FastAPI(title="AI Scheduling Agent API")
 
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+
+
+def _frontend_redirect(path: str) -> RedirectResponse:
+	"""Redirect to the configured frontend base URL."""
+	path_with_leading = path if path.startswith("/") else f"/{path}"
+	return RedirectResponse(url=f"{FRONTEND_BASE_URL}{path_with_leading}")
+
 # Include calendar routers
 app.include_router(chat_router)
 app.include_router(accept_router)
