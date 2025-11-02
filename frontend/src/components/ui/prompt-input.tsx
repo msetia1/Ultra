@@ -61,19 +61,9 @@ function PromptInput({
   disabled = false,
   children,
 }: PromptInputProps) {
-  console.log('[PromptInput] Rendering with props:', {
-    className,
-    isLoading,
-    maxHeight,
-    value,
-    disabled,
-    hasOnValueChange: !!onValueChange,
-    hasOnSubmit: !!onSubmit
-  });
   const [internalValue, setInternalValue] = useState(value || "")
 
   const handleChange = (newValue: string) => {
-    console.log('[PromptInput] handleChange called with:', newValue);
     setInternalValue(newValue)
     onValueChange?.(newValue)
   }
@@ -86,7 +76,6 @@ function PromptInput({
     onSubmit,
     disabled,
   };
-  console.log('[PromptInput] Context value:', contextValue);
 
   return (
     <TooltipProvider>
@@ -95,7 +84,7 @@ function PromptInput({
       >
         <div
           className={cn(
-            "rounded-3xl border p-2",
+            "border-input bg-background rounded-3xl border p-2 shadow-xs",
             className
           )}
         >
@@ -116,13 +105,10 @@ function PromptInputTextarea({
   disableAutosize = false,
   ...props
 }: PromptInputTextareaProps) {
-  console.log('[PromptInputTextarea] Rendering with className:', className);
   const { value, setValue, maxHeight, onSubmit, disabled } = usePromptInput()
-  console.log('[PromptInputTextarea] Context values:', { value, maxHeight, disabled, hasOnSubmit: !!onSubmit });
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    console.log('[PromptInputTextarea] useEffect - textareaRef.current:', !!textareaRef.current);
     if (disableAutosize) return
 
     if (!textareaRef.current) return
@@ -142,11 +128,8 @@ function PromptInputTextarea({
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    console.log('[PromptInputTextarea] onChange event:', e.target.value);
     setValue(e.target.value);
   };
-
-  console.log('[PromptInputTextarea] About to render Textarea with value:', value);
 
   return (
     <Textarea
@@ -155,7 +138,7 @@ function PromptInputTextarea({
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       className={cn(
-        "min-h-[44px] w-full resize-none border-none bg-transparent shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+        "text-primary min-h-[44px] w-full resize-none border-none bg-transparent shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
         className
       )}
       rows={1}

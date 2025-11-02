@@ -5,13 +5,19 @@ import type { Message } from '../types/chat.types';
 interface ChatStore {
   isOpen: boolean;
   messages: Message[];
+  streamingMessage: string;
+  isStreaming: boolean;
 
   // Actions
   toggleChat: () => void;
   openChat: () => void;
   closeChat: () => void;
   addMessage: (content: string, sender: 'user' | 'ai') => void;
+  addUserMessage: (content: string) => void;
+  updateStreamingMessage: (delta: string) => void;
+  finalizeStreamingMessage: () => void;
   clearMessages: () => void;
+  setStreaming: (isStreaming: boolean) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -20,7 +26,22 @@ export const useChatStore = create<ChatStore>()(
       console.log('[chatStore] Store initializing with isOpen: true');
       return {
         isOpen: true, // Temporarily true for debugging
-        messages: [],
+        messages: [
+          {
+            id: 'sample-user-1',
+            content: 'Can you help me schedule a meeting for tomorrow?',
+            timestamp: new Date(),
+            sender: 'user'
+          },
+          {
+            id: 'sample-ai-1',
+            content: "Of course! I'd be happy to help you schedule a meeting for tomorrow. What time works best for you, and how long should the meeting be?",
+            timestamp: new Date(),
+            sender: 'ai'
+          }
+        ],
+        streamingMessage: '',
+        isStreaming: false,
 
       toggleChat: () => {
         console.log('[chatStore] toggleChat called');
@@ -53,7 +74,42 @@ export const useChatStore = create<ChatStore>()(
           ]
         })),
 
-      clearMessages: () => set({ messages: [] })
+      addUserMessage: (content: string) =>
+        set((state) => ({
+          messages: [
+            ...state.messages,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              content,
+              timestamp: new Date(),
+              sender: 'user'
+            }
+          ]
+        })),
+
+      updateStreamingMessage: (delta: string) =>
+        set((state) => ({
+          streamingMessage: state.streamingMessage + delta
+        })),
+
+      finalizeStreamingMessage: () =>
+        set((state) => {
+          const finalMessage = {
+            id: `msg-${Date.now()}-${Math.random()}`,
+            content: state.streamingMessage,
+            timestamp: new Date(),
+            sender: 'ai' as const
+          };
+          return {
+            messages: [...state.messages, finalMessage],
+            streamingMessage: '',
+            isStreaming: false
+          };
+        }),
+
+      setStreaming: (isStreaming: boolean) => set({ isStreaming }),
+
+      clearMessages: () => set({ messages: [], streamingMessage: '', isStreaming: false })
       };
     },
     {

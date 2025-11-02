@@ -1,24 +1,22 @@
 import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
-import { X, ArrowUp, Square } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useCalendarChat } from '@/features/calendar/hooks/useCalendarChat';
 import PatchPreview from '@/features/calendar/components/PatchPreview';
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputActions,
-  PromptInputAction,
-} from '@/components/ui/prompt-input';
-import { Button } from '@/components/ui/button';
+import ChatInput from './ChatInput';
+import MessageList from './MessageList';
 
 export default function ChatPanel() {
-  console.log('[ChatPanel] Component rendering');
-  const { isOpen, closeChat } = useChatStore();
-  console.log('[ChatPanel] isOpen state:', isOpen);
+  const {
+    isOpen,
+    closeChat,
+    messages,
+    streamingMessage,
+    isStreaming: isStreamingStore,
+    addUserMessage
+  } = useChatStore();
   const [input, setInput] = useState('');
   const [isAccepting, setIsAccepting] = useState(false);
-
-  console.log('[ChatPanel] Current input:', input);
 
   // Get current week_id (you may want to pass this as a prop)
   const getCurrentWeekId = () => {
@@ -41,16 +39,20 @@ export default function ChatPanel() {
   } = useCalendarChat(weekId);
 
   const handleSubmit = async (e?: React.FormEvent) => {
-    console.log('[ChatPanel] handleSubmit called with input:', input);
     e?.preventDefault();
     if (!input.trim() || isStreaming || isAccepting) return;
 
-    await sendMessage(input.trim());
+    // Add user message to store
+    addUserMessage(input.trim());
+
+    // Clear input
     setInput('');
+
+    // TODO: Backend integration - will connect when backend is ready
+    // await sendMessage(input.trim());
   };
 
   const handleInputChange = (newValue: string) => {
-    console.log('[ChatPanel] Input changed:', newValue);
     setInput(newValue);
   };
 
@@ -88,38 +90,40 @@ export default function ChatPanel() {
   };
 
   if (!isOpen) {
-    console.log('[ChatPanel] Not rendering - isOpen is false');
     return null;
   }
-
-  console.log('[ChatPanel] Rendering panel - isOpen is true');
 
   return (
     <div
       className={`
-        fixed right-0 top-0 h-full w-[418px]
-        transform transition-transform duration-300 ease-in-out z-50 flex flex-col
-        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+        fixed right-0 top-0 bottom-0 w-[418px]
+        transform transition-transform duration-300 ease-in-out z-[100] flex flex-col
+        ${isOpen ? '!translate-x-0' : 'translate-x-full'}
       `}
       style={{
-        backgroundColor: '#FF0000',
-        border: '5px solid yellow'
+        backgroundColor: '#000000',
+        borderLeft: '1px solid #252525',
+        position: 'fixed',
+        right: 0,
+        top: 0,
+        bottom: 0,
       }}
     >
       {/* Chat Header */}
       <div
-        className="relative p-6 border-b border-[#606060]"
+        className="relative p-6 shrink-0"
         style={{
-          backgroundColor: '#FFFF00',
-          minHeight: '80px',
-          flexShrink: 0
+          backgroundColor: '#000000',
         }}
       >
-        <div className="flex items-center justify-between">
-          <h2 style={{ color: '#000000', fontSize: '20px', fontWeight: 'bold' }}>Calendar Assistant</h2>
+        <div className="flex items-center justify-end">
           <button
             onClick={closeChat}
-            style={{ color: '#000000', fontSize: '24px' }}
+            className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
+            style={{
+              paddingTop: '16px',
+              paddingRight: '16px',
+            }}
             aria-label="Close chat"
           >
             <X size={24} />
@@ -128,36 +132,12 @@ export default function ChatPanel() {
       </div>
 
       {/* Chat Messages */}
-      <div
-        className="flex-1 overflow-y-auto p-6 space-y-4"
-        style={{
-          backgroundColor: '#FF00FF',
-          minHeight: '200px'
-        }}
-      >
-        {streamedMessage && (
-          <div className="bg-[#606060]/20 rounded-lg p-4">
-            <div className="text-[#fcecc9] text-sm whitespace-pre-wrap">
-              {streamedMessage}
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-900/20 border border-red-700/30 rounded-lg p-4">
-            <div className="text-red-400 text-sm">
-              {error}
-            </div>
-          </div>
-        )}
-
-        {isStreaming && (
-          <div className="flex items-center gap-2 text-[#888888] text-sm">
-            <div className="w-2 h-2 bg-[#888888] rounded-full animate-pulse"></div>
-            Processing...
-          </div>
-        )}
-      </div>
+      <MessageList
+        messages={messages}
+        streamingMessage={streamedMessage || streamingMessage}
+        isStreaming={isStreaming || isStreamingStore}
+        error={error}
+      />
 
       {/* Patch Preview */}
       {proposedPatches.length > 0 && (
@@ -171,54 +151,22 @@ export default function ChatPanel() {
 
       {/* Input */}
       <div
-        className="p-4 border-t border-[#606060]"
+        className="shrink-0"
         style={{
-          backgroundColor: '#00FF00',
-          minHeight: '120px',
-          flexShrink: 0
+          backgroundColor: '#000000',
+          paddingLeft: '32px',
+          paddingRight: '32px',
+          paddingTop: '24px',
+          paddingBottom: '24px',
         }}
       >
-        {console.log('[ChatPanel] About to render PromptInput with:', { input, isStreaming, isAccepting })}
-        <div style={{ backgroundColor: '#0000FF', border: '3px solid cyan', padding: '10px', minHeight: '80px' }}>
-          <PromptInput
-            value={input}
-            onValueChange={handleInputChange}
-            isLoading={isStreaming || isAccepting}
-            disabled={isStreaming || isAccepting}
-            onSubmit={handleSubmit}
-            className="border-[#606060]"
-          >
-          <PromptInputTextarea
-            placeholder="Add meeting tomorrow at 2pm..."
-            className="text-[#fcecc9] placeholder:text-[#888888] bg-transparent"
-            style={{
-              color: '#FFFFFF',
-              fontSize: '16px',
-              minHeight: '44px',
-              width: '100%'
-            }}
-          />
-          <PromptInputActions className="flex items-center justify-end gap-2 pt-2">
-            <PromptInputAction
-              tooltip={isStreaming || isAccepting ? "Processing..." : "Send message"}
-            >
-              <Button
-                variant="default"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-[#fcecc9] text-black hover:bg-[#fcecc9]/90"
-                onClick={handleSubmit}
-                disabled={isStreaming || isAccepting || !input.trim()}
-              >
-                {isStreaming || isAccepting ? (
-                  <Square className="size-5 fill-current" />
-                ) : (
-                  <ArrowUp className="size-5" />
-                )}
-              </Button>
-            </PromptInputAction>
-          </PromptInputActions>
-        </PromptInput>
-        </div>
+        <ChatInput
+          value={input}
+          onChange={handleInputChange}
+          onSubmit={handleSubmit}
+          isLoading={isStreaming || isAccepting}
+          placeholder="Add meeting tomorrow at 2pm..."
+        />
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useCalendarStore } from '../store/calendarStore';
 import { getWeekEnd } from '../utils/dateHelpers';
 import CalendarHeader from './CalendarHeader';
@@ -9,9 +8,17 @@ interface CalendarProps {
   onToggleChat?: () => void;
   isChatOpen?: boolean;
   className?: string;
+  selectedTaskId: string | null;
+  onTaskClick: (taskId: string) => void;
 }
 
-export default function Calendar({ onToggleChat, isChatOpen, className = '' }: CalendarProps) {
+export default function Calendar({
+  onToggleChat,
+  isChatOpen,
+  className = '',
+  selectedTaskId,
+  onTaskClick
+}: CalendarProps) {
   const {
     currentWeekStart,
     tasks,
@@ -20,7 +27,6 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
     loadMockData
   } = useCalendarStore();
 
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   // Load mock data on mount
@@ -42,14 +48,6 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
 
   const weekEnd = getWeekEnd(currentWeekStart);
 
-  const handleTaskClick = (taskId: string) => {
-    setSelectedTaskId(selectedTaskId === taskId ? null : taskId);
-  };
-
-  const handleBackdropClick = () => {
-    setSelectedTaskId(null);
-  };
-
   if (error) {
     return (
       <div className="flex items-center justify-center h-full bg-black text-red-500">
@@ -64,6 +62,7 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
         weekStart={currentWeekStart}
         weekEnd={weekEnd}
         onToggleChat={onToggleChat}
+        isChatOpen={isChatOpen}
       />
 
       {isLoading ? (
@@ -75,20 +74,11 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
           weekStart={currentWeekStart}
           tasks={tasks}
           selectedTaskId={selectedTaskId}
-          onTaskClick={handleTaskClick}
+          onTaskClick={onTaskClick}
           isChatOpen={isChatOpen}
           isVisible={isVisible}
         />
       )}
-
-      {/* Backdrop overlay when a task is selected */}
-      <motion.div
-        onClick={handleBackdropClick}
-        className="absolute inset-0 bg-black pointer-events-none z-40"
-        style={{ pointerEvents: selectedTaskId ? 'auto' : 'none' }}
-        animate={{ opacity: selectedTaskId ? 0.6 : 0 }}
-        transition={{ duration: 0.3 }}
-      />
     </div>
   );
 }
