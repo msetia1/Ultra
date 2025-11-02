@@ -33,7 +33,7 @@ export default function CalendarHeader({
       </div>
 
       {/* Date Range - Centered */}
-      <div className="font-inter font-medium text-[24px] leading-[36px] tracking-[0.0703px]" style={{ color: '#ffffff' }}>
+      <div className="font-inter font-medium text-[20px] leading-[30px] tracking-[0.0703px]" style={{ color: '#ffffff' }}>
         {formatDateRange(weekStart, weekEnd)}
       </div>
 

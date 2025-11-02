@@ -5,16 +5,32 @@ import json
 import re
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from deepdiff import DeepDiff
-from ..models import CalendarModifyEventPatch, EventDayLocator, EventFieldPatch
+from agents import function_tool, RunContextWrapper
+from ..models import CalendarModifyEventPatch, EventDayLocator, EventFieldPatch, CalendarContext
 from ..services.openrouter_client import get_openrouter_client
 
 logger = logging.getLogger(__name__)
 
 
+def _resolve_context(wrapper: RunContextWrapper[CalendarContext]) -> CalendarContext:
+    """Unwrap RunContextWrapper to get CalendarContext.
+
+    The Agents SDK may wrap context multiple times during nested agent calls.
+    This function recursively unwraps to find the actual CalendarContext.
+    """
+    context = wrapper
+    guard = 4  # Prevent infinite loops
+    while hasattr(context, "context") and guard:
+        context = getattr(context, "context")
+        guard -= 1
+    return context
+
+
+@function_tool
 async def emit_modify_event_patch(
-    context: Dict[str, Any],
+    wrapper: RunContextWrapper[CalendarContext],
     event_id: str,
     date: str,
     instruction: str,
@@ -23,7 +39,7 @@ async def emit_modify_event_patch(
     """Emit a patch to modify event fields using Morph API.
 
     Args:
-        context: Shared calendar context
+        wrapper: RunContextWrapper containing CalendarContext
         event_id: UUID of event to modify
         date: Scheduled date of event (YYYY-MM-DD)
         instruction: First-person description of change (e.g., "I'm changing the time from 2pm to 3pm")
@@ -33,11 +49,13 @@ async def emit_modify_event_patch(
         Dict with status, patch_id, and field_patch_count
     """
     try:
+        # Unwrap context
+        context = _resolve_context(wrapper)
+
         logger.info(f"[EMIT_MODIFY_EVENT] Creating patch for event {event_id}")
 
         # Find original event in week snapshot
-        week_snapshot = context.get("week_snapshot", {})
-        original_event = _find_event_by_id(week_snapshot, event_id)
+        original_event = _find_event_by_id(context.week_snapshot, event_id)
         if not original_event:
             raise ValueError(f"Event {event_id} not found in week snapshot")
 
@@ -83,13 +101,10 @@ async def emit_modify_event_patch(
         )
 
         # Add to context proposed patches
-        agent_outputs = context.get("agent_outputs", {})
-        proposed_patches = agent_outputs.setdefault("proposed_calendar_patches", [])
-        proposed_patches.append(patch.model_dump(mode="json"))
+        context.agent_outputs["proposed_calendar_patches"].append(patch.model_dump(mode="json"))
 
         # Queue SSE event for streaming
-        immediate_events = agent_outputs.setdefault("immediate_sse_events", [])
-        immediate_events.append({
+        context.agent_outputs["immediate_sse_events"].append({
             "type": "patch_proposed",
             "patch": patch.model_dump(mode="json"),
         })

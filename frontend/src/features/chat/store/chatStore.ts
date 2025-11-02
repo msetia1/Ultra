@@ -16,15 +16,29 @@ interface ChatStore {
 
 export const useChatStore = create<ChatStore>()(
   persist(
-    (set) => ({
-      isOpen: false,
-      messages: [],
+    (set) => {
+      console.log('[chatStore] Store initializing with isOpen: true');
+      return {
+        isOpen: true, // Temporarily true for debugging
+        messages: [],
 
-      toggleChat: () => set((state) => ({ isOpen: !state.isOpen })),
+      toggleChat: () => {
+        console.log('[chatStore] toggleChat called');
+        return set((state) => {
+          console.log('[chatStore] Current isOpen:', state.isOpen, '-> New isOpen:', !state.isOpen);
+          return { isOpen: !state.isOpen };
+        });
+      },
 
-      openChat: () => set({ isOpen: true }),
+      openChat: () => {
+        console.log('[chatStore] openChat called');
+        return set({ isOpen: true });
+      },
 
-      closeChat: () => set({ isOpen: false }),
+      closeChat: () => {
+        console.log('[chatStore] closeChat called');
+        return set({ isOpen: false });
+      },
 
       addMessage: (content: string, sender: 'user' | 'ai') =>
         set((state) => ({
@@ -40,7 +54,8 @@ export const useChatStore = create<ChatStore>()(
         })),
 
       clearMessages: () => set({ messages: [] })
-    }),
+      };
+    },
     {
       name: 'chat-storage',
       partialize: (state) => ({ isOpen: state.isOpen }) // Only persist open/closed state

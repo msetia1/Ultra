@@ -4,56 +4,31 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, Any
-from ..services.openrouter_client import get_openrouter_client
+from agents import Agent, function_tool, RunContextWrapper
 from ..tools import emit_remove_event_patch
+from ..models import CalendarContext
 
 logger = logging.getLogger(__name__)
 
 
-REMOVE_EVENT_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "emit_remove_event_patch",
-        "description": "Remove a calendar event. Call this function for each event to delete.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "event_id": {
-                    "type": "string",
-                    "description": "UUID of the event to remove",
-                },
-                "date": {
-                    "type": "string",
-                    "description": "Scheduled date of the event in YYYY-MM-DD format",
-                },
-            },
-            "required": ["event_id", "date"],
-        },
-    },
-}
-
-
-async def run_remove_event_agent(
-    context: Dict[str, Any],
-    user_intent: str,
-) -> Dict[str, Any]:
-    """Run the remove event specialized agent.
+def create_remove_event_agent(
+    week_snapshot: Dict[str, Any],
+    event_locators: Dict[str, Any],
+    conversation_history: str = "",
+) -> Agent:
+    """Create Remove Event Agent instance.
 
     Args:
-        context: Shared calendar context
-        user_intent: User's intent extracted by conversation agent
+        week_snapshot: Complete week data with events
+        event_locators: event_id -> EventDayLocator mapping
+        conversation_history: Recent conversation turns for context
 
     Returns:
-        Dict with status, patch_count, and agent_response
+        Agent configured for removing calendar events
     """
-    try:
-        logger.info(f"[REMOVE_EVENT_AGENT] Processing: {user_intent[:100]}")
+    current_date = datetime.now().strftime("%Y-%m-%d (%A)")
 
-        current_date = datetime.now().strftime("%Y-%m-%d (%A)")
-        week_snapshot = context.get("week_snapshot", {})
-        event_locators = context.get("event_locators", {})
-
-        system_prompt = f"""You are a specialized Calendar Remove Event Agent. Your job is to help users delete events from their weekly calendar.
+    instructions = f"""You are a specialized Calendar Remove Event Agent. Your job is to help users delete events from their weekly calendar.
 
 CURRENT DATE: {current_date}
 
@@ -72,47 +47,65 @@ YOUR TASK:
 IMPORTANT:
 - Match events by title, time, or date based on user description
 - If multiple events match, ask for clarification or remove all if user said "all"
-- Use exact event_id from the snapshot"""
+- Use exact event_id from the snapshot
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_intent},
-        ]
+CONVERSATION HISTORY:
+{conversation_history}"""
 
-        client = get_openrouter_client()
-        response = await client.chat_completion(
-            messages=messages,
-            model="anthropic/claude-3.5-sonnet",
-            tools=[REMOVE_EVENT_TOOL],
-            tool_choice="auto",
+    return Agent(
+        name="RemoveEventAgent",
+        instructions=instructions,
+        model="anthropic/claude-3.5-sonnet",
+        tools=[emit_remove_event_patch],
+    )
+
+
+@function_tool
+def run_remove_event_agent(
+    wrapper: RunContextWrapper[CalendarContext],
+    user_intent: str,
+) -> str:
+    """Run the remove event specialized agent (callable as a tool).
+
+    Args:
+        wrapper: RunContextWrapper containing CalendarContext
+        user_intent: User's intent extracted by conversation agent
+
+    Returns:
+        Agent response confirming event removal
+    """
+    from agents import Runner
+
+    # Unwrap context
+    def _resolve_context(w):
+        context = w
+        guard = 4
+        while hasattr(context, "context") and guard:
+            context = getattr(context, "context")
+            guard -= 1
+        return context
+
+    context = _resolve_context(wrapper)
+    logger.info(f"[REMOVE_EVENT_AGENT] Processing: {user_intent[:100]}")
+
+    try:
+        # Create agent with current week context
+        agent = create_remove_event_agent(
+            week_snapshot=context.week_snapshot,
+            event_locators=context.event_locators,
+            conversation_history=context.conversation_history or "",
         )
 
-        message = response.choices[0].message
-        patches_created = 0
+        # Run agent to completion
+        result = Runner.run_sync(
+            starting_agent=agent,
+            input=user_intent,
+            context=wrapper,
+        )
 
-        if message.tool_calls:
-            for tool_call in message.tool_calls:
-                if tool_call.function.name == "emit_remove_event_patch":
-                    args = json.loads(tool_call.function.arguments)
-                    result = emit_remove_event_patch(context, **args)
-                    if result["status"] == "queued":
-                        patches_created += 1
-                        logger.info(f"[REMOVE_EVENT_AGENT] Created patch {result['patch_id']}")
-
-        final_response = message.content or f"Removed {patches_created} event(s)"
-
-        logger.info(f"[REMOVE_EVENT_AGENT] Completed with {patches_created} patches")
-
-        return {
-            "status": "completed",
-            "patch_count": patches_created,
-            "agent_response": final_response,
-        }
+        logger.info(f"[REMOVE_EVENT_AGENT] Completed")
+        return result.output
 
     except Exception as e:
         logger.error(f"[REMOVE_EVENT_AGENT] Failed: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "patch_count": 0,
-            "agent_response": f"Failed to remove event: {str(e)}",
-        }
+        return f"Failed to remove event: {str(e)}"

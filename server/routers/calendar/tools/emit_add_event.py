@@ -4,13 +4,29 @@ import uuid
 import logging
 from datetime import datetime
 from typing import Any, Dict
-from ..models import CalendarAddEventPatch, CalendarEvent, EventDayLocator, EventInsertionAnchor
+from agents import function_tool, RunContextWrapper
+from ..models import CalendarAddEventPatch, CalendarEvent, EventDayLocator, EventInsertionAnchor, CalendarContext
 
 logger = logging.getLogger(__name__)
 
 
+def _resolve_context(wrapper: RunContextWrapper[CalendarContext]) -> CalendarContext:
+    """Unwrap RunContextWrapper to get CalendarContext.
+
+    The Agents SDK may wrap context multiple times during nested agent calls.
+    This function recursively unwraps to find the actual CalendarContext.
+    """
+    context = wrapper
+    guard = 4  # Prevent infinite loops
+    while hasattr(context, "context") and guard:
+        context = getattr(context, "context")
+        guard -= 1
+    return context
+
+
+@function_tool
 def emit_add_event_patch(
-    context: Dict[str, Any],
+    wrapper: RunContextWrapper[CalendarContext],
     title: str,
     date: str,
     start_time: str,
@@ -20,7 +36,7 @@ def emit_add_event_patch(
     """Emit a patch to add a new calendar event.
 
     Args:
-        context: Shared calendar context
+        wrapper: RunContextWrapper containing CalendarContext
         title: Event title
         date: Scheduled date (YYYY-MM-DD)
         start_time: Start time (HH:MM in 24-hour format)
@@ -31,6 +47,9 @@ def emit_add_event_patch(
         Dict with status and patch_id
     """
     try:
+        # Unwrap context
+        context = _resolve_context(wrapper)
+
         logger.info(f"[EMIT_ADD_EVENT] Creating patch for '{title}' on {date}")
 
         # Create complete event
@@ -66,13 +85,10 @@ def emit_add_event_patch(
         )
 
         # Add to context proposed patches
-        agent_outputs = context.get("agent_outputs", {})
-        proposed_patches = agent_outputs.setdefault("proposed_calendar_patches", [])
-        proposed_patches.append(patch.model_dump(mode="json"))
+        context.agent_outputs["proposed_calendar_patches"].append(patch.model_dump(mode="json"))
 
         # Queue SSE event for streaming
-        immediate_events = agent_outputs.setdefault("immediate_sse_events", [])
-        immediate_events.append({
+        context.agent_outputs["immediate_sse_events"].append({
             "type": "patch_proposed",
             "patch": patch.model_dump(mode="json"),
         })
