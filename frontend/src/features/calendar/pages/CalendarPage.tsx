@@ -58,7 +58,7 @@ export default function CalendarPage() {
             right: 0,
             bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
+            backdropFilter: 'blur(3px)',
             cursor: 'pointer',
           }}
           data-backdrop="true"
