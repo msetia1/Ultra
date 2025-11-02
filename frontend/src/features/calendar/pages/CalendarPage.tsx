@@ -14,7 +14,7 @@ export default function CalendarPage() {
           ${isOpen ? 'mr-[418px]' : 'mr-0'}
         `}
       >
-        <Calendar onToggleChat={toggleChat} />
+        <Calendar onToggleChat={toggleChat} isChatOpen={isOpen} />
       </div>
 
       {/* Chat Panel (Collapsible) */}

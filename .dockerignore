@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+Linear.md
+README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Frontend build artifacts (will be built in Docker)
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (use App Runner env vars instead)
+.env
+.env.*
+!.env.example
+
+# Reference files
+reference/
+
+# Client (old/deprecated)
+client/
+
+# Testing
+.coverage
+htmlcov/

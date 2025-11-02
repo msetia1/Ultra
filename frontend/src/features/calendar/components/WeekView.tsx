@@ -8,6 +8,7 @@ interface WeekViewProps {
   className?: string;
   selectedTaskId: string | null;
   onTaskClick: (taskId: string) => void;
+  isChatOpen?: boolean;
 }
 
 export default function WeekView({
@@ -15,7 +16,8 @@ export default function WeekView({
   tasks,
   className = '',
   selectedTaskId,
-  onTaskClick
+  onTaskClick,
+  isChatOpen
 }: WeekViewProps) {
   const weekDates = getWeekDates(weekStart);
 
@@ -39,6 +41,7 @@ export default function WeekView({
           className={index === 6 ? 'border-r-0' : ''}
           selectedTaskId={selectedTaskId}
           onTaskClick={onTaskClick}
+          isChatOpen={isChatOpen}
         />
       ))}
     </div>

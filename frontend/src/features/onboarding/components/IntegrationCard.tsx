@@ -62,6 +62,10 @@ export default function IntegrationCard({
           src={integration.icon}
           alt={`${integration.name} icon`}
           className="max-w-[34px] max-h-[34px] object-contain"
+          style={{
+            objectPosition: 'center',
+            transform: integration.id === 'trayne' ? 'translateX(-2px)' : undefined
+          }}
         />
       </div>
 

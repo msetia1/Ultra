@@ -20,7 +20,7 @@ export default function TaskCard({ task, className = '', style }: TaskCardProps)
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "group relative px-[14px] pt-[6px] pb-[14px] w-[120px] rounded-[10px] overflow-hidden transition-all duration-300",
+        "group relative px-[14px] pt-[6px] pb-[14px] w-[90%] max-w-[120px] rounded-[10px] overflow-hidden transition-all duration-300",
         "border border-white/10 bg-black",
         "flex flex-col",
         className
