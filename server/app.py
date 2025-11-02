@@ -6,9 +6,18 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from integrations.whoop_service import (
-	build_authorization_url,
-	exchange_code_for_tokens,
+	build_authorization_url as build_whoop_auth_url,
+	exchange_code_for_tokens as exchange_whoop_tokens,
 	fetch_cycles,
+)
+
+from integrations.linear_service import (
+	build_authorization_url as build_linear_auth_url,
+	exchange_code_for_tokens as exchange_linear_tokens,
+	fetch_teams,
+	fetch_issues,
+	fetch_projects,
+	create_issue,
 )
 
 load_dotenv()
@@ -48,6 +57,14 @@ def root():
 				"callback": "/auth/whoop/callback",
 				"fetch_cycles": "/whoop/cycles",
 			},
+			"linear": {
+				"start_oauth": "/auth/linear/start",
+				"callback": "/auth/linear/callback",
+				"fetch_teams": "/linear/teams",
+				"fetch_issues": "/linear/issues",
+				"fetch_projects": "/linear/projects",
+				"create_issue": "/linear/issues",
+			},
 		},
 		"status": "operational",
 	}
@@ -65,6 +82,14 @@ def api_info():
 				"callback": "/auth/whoop/callback",
 				"fetch_cycles": "/whoop/cycles",
 			},
+			"linear": {
+				"start_oauth": "/auth/linear/start",
+				"callback": "/auth/linear/callback",
+				"fetch_teams": "/linear/teams",
+				"fetch_issues": "/linear/issues",
+				"fetch_projects": "/linear/projects",
+				"create_issue": "/linear/issues",
+			},
 		},
 		"status": "operational",
 	}
@@ -74,7 +99,7 @@ def api_info():
 def start_whoop_oauth():
 	"""Initiate WHOOP OAuth flow."""
 	try:
-		auth_url, state = build_authorization_url(TEST_USER_ID)
+		auth_url, state = build_whoop_auth_url(TEST_USER_ID)
 		return RedirectResponse(url=auth_url)
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=f"Error starting OAuth: {str(e)}")
@@ -84,7 +109,7 @@ def start_whoop_oauth():
 def whoop_callback(code: str, state: str):
 	"""Handle WHOOP OAuth callback."""
 	try:
-		tokens = exchange_code_for_tokens(code, TEST_USER_ID)
+		tokens = exchange_whoop_tokens(code, TEST_USER_ID)
 		# Redirect back to frontend with success
 		return RedirectResponse(url="/?whoop=connected")
 	except Exception as e:
@@ -115,4 +140,124 @@ def get_whoop_cycles(days: int = 7):
 def health_check():
 	"""Health check endpoint."""
 	return {"status": "healthy"}
+
+
+# Linear OAuth endpoints
+@app.get("/auth/linear/start")
+def start_linear_oauth():
+	"""Initiate Linear OAuth flow."""
+	try:
+		auth_url, state = build_linear_auth_url(TEST_USER_ID)
+		return RedirectResponse(url=auth_url)
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error starting OAuth: {str(e)}")
+
+
+@app.get("/auth/linear/callback")
+def linear_callback(code: str, state: str):
+	"""Handle Linear OAuth callback."""
+	try:
+		tokens = exchange_linear_tokens(code, TEST_USER_ID)
+		# Redirect back to frontend with success
+		return RedirectResponse(url="/?linear=connected")
+	except Exception as e:
+		# Redirect back to frontend with error
+		return RedirectResponse(url=f"/?error={str(e)}")
+
+
+# Linear data endpoints
+@app.get("/linear/teams")
+def get_linear_teams():
+	"""Fetch Linear teams."""
+	try:
+		teams_data = fetch_teams(TEST_USER_ID)
+		return {
+			"status": "success",
+			"data": teams_data,
+		}
+	except ValueError as e:
+		raise HTTPException(
+			status_code=404,
+			detail="Linear integration not connected. Complete OAuth flow first.",
+		)
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error fetching teams: {str(e)}")
+
+
+@app.get("/linear/issues")
+def get_linear_issues(team_id: str = None, state: str = None, assignee: str = "me"):
+	"""Fetch Linear issues with optional filters."""
+	try:
+		filters = {}
+		if state:
+			filters["state"] = state
+		if assignee:
+			filters["assignee"] = assignee
+
+		issues_data = fetch_issues(TEST_USER_ID, team_id=team_id, filters=filters)
+		return {
+			"status": "success",
+			"data": issues_data,
+		}
+	except ValueError as e:
+		raise HTTPException(
+			status_code=404,
+			detail="Linear integration not connected. Complete OAuth flow first.",
+		)
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error fetching issues: {str(e)}")
+
+
+@app.get("/linear/projects")
+def get_linear_projects():
+	"""Fetch Linear projects."""
+	try:
+		projects_data = fetch_projects(TEST_USER_ID)
+		return {
+			"status": "success",
+			"data": projects_data,
+		}
+	except ValueError as e:
+		raise HTTPException(
+			status_code=404,
+			detail="Linear integration not connected. Complete OAuth flow first.",
+		)
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
+
+
+@app.post("/linear/issues")
+def create_linear_issue(payload: dict):
+	"""Create a new Linear issue.
+
+	Request body should include:
+	- team_id (required): Team ID
+	- title (required): Issue title
+	- description (optional): Issue description
+	- priority (optional): Priority level (0-4)
+	- assignee_id (optional): Assignee user ID
+	- state_id (optional): Workflow state ID
+	- project_id (optional): Project ID
+	"""
+	try:
+		if "team_id" not in payload or "title" not in payload:
+			raise HTTPException(
+				status_code=400,
+				detail="Missing required fields: team_id and title are required",
+			)
+
+		issue_data = create_issue(TEST_USER_ID, **payload)
+		return {
+			"status": "success",
+			"data": issue_data,
+		}
+	except ValueError as e:
+		raise HTTPException(
+			status_code=404,
+			detail="Linear integration not connected. Complete OAuth flow first.",
+		)
+	except HTTPException:
+		raise
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error creating issue: {str(e)}")
 
