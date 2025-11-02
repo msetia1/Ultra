@@ -25,9 +25,11 @@ export default function CalendarHeader({
       {/* Logo Section */}
       <div className="flex items-center gap-3">
         {/* Ultra Logo */}
-        <div className="text-[#fcecc9] text-[20px] italic select-none" style={{ fontFamily: 'Turbo Driver, sans-serif' }}>
-          Ultra
-        </div>
+        <img
+          src="/icons/UltraLogo.png"
+          alt="Ultra Logo"
+          className="h-[43px] rounded-[10px]"
+        />
       </div>
 
       {/* Date Range - Centered */}
