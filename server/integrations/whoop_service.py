@@ -6,7 +6,7 @@ https://developer.whoop.com/docs/developing/oauth/
 
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
 import requests
 from dotenv import load_dotenv
@@ -26,7 +26,7 @@ WHOOP_AUTH_URL = f"{WHOOP_API_HOSTNAME}/oauth/oauth2/auth"
 WHOOP_TOKEN_URL = f"{WHOOP_API_HOSTNAME}/oauth/oauth2/token"
 
 # Scopes for accessing WHOOP data
-DEFAULT_SCOPES = "offline read:recovery read:workout read:sleep read:cycle read:profile"
+DEFAULT_SCOPES = "offline read:recovery read:workout read:sleep read:cycles read:profile"
 
 
 def build_authorization_url(user_id: str) -> Tuple[str, str]:
@@ -87,7 +87,7 @@ def exchange_code_for_tokens(code: str, user_id: str) -> Dict:
 	token_data = resp.json()
 	
 	# Calculate token expiration timestamp
-	expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
+	expires_at = datetime.now(timezone.utc) + timedelta(seconds=token_data["expires_in"])
 	
 	# Fetch WHOOP user ID from profile endpoint
 	whoop_user_id = _get_whoop_user_id(token_data["access_token"])
@@ -99,7 +99,7 @@ def exchange_code_for_tokens(code: str, user_id: str) -> Dict:
 		"access_token": token_data["access_token"],
 		"refresh_token": token_data["refresh_token"],
 		"expires_at": expires_at.isoformat(),
-		"updated_at": datetime.utcnow().isoformat(),
+		"updated_at": datetime.now(timezone.utc).isoformat(),
 	}).execute()
 	
 	# Update user's integration flag
@@ -145,14 +145,14 @@ def refresh_access_token(user_id: str) -> Dict:
 	token_data = resp.json()
 	
 	# Calculate new expiration
-	expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
+	expires_at = datetime.now(timezone.utc) + timedelta(seconds=token_data["expires_in"])
 	
 	# Update database with new tokens (both access AND refresh are replaced)
 	supabase.table("whoop").update({
 		"access_token": token_data["access_token"],
 		"refresh_token": token_data["refresh_token"],
 		"expires_at": expires_at.isoformat(),
-		"updated_at": datetime.utcnow().isoformat(),
+		"updated_at": datetime.now(timezone.utc).isoformat(),
 	}).eq("user_id", user_id).execute()
 	
 	return token_data
@@ -179,9 +179,10 @@ def get_valid_access_token(user_id: str) -> str:
 	token_data = token_result.data[0]
 	expires_at_str = token_data["expires_at"].replace("Z", "+00:00")
 	expires_at = datetime.fromisoformat(expires_at_str)
+	now = datetime.now(timezone.utc)
 	
 	# Refresh if token expires within 5 minutes (safety buffer)
-	if datetime.utcnow() + timedelta(minutes=5) >= expires_at:
+	if now + timedelta(minutes=5) >= expires_at:
 		refresh_access_token(user_id)
 		# Re-fetch updated token
 		token_result = supabase.table("whoop").select("*").eq("user_id", user_id).execute()
@@ -202,7 +203,7 @@ def fetch_cycles(user_id: str, days: int = 14) -> Dict:
 	"""
 	access_token = get_valid_access_token(user_id)
 	
-	end_date = datetime.utcnow().date()
+	end_date = datetime.now(timezone.utc).date()
 	start_date = end_date - timedelta(days=days)
 	
 	resp = requests.get(
