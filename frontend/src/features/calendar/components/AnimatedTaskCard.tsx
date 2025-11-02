@@ -25,16 +25,25 @@ export default function AnimatedTaskCard({
 
   return (
     <div
-      onClick={onClick}
+      onClick={(e) => {
+        console.log('[AnimatedTaskCard] Clicked! isSelected:', isSelected, 'taskId:', task.id);
+        e.stopPropagation();
+        if (!isSelected) {
+          console.log('[AnimatedTaskCard] Opening card, calling onClick');
+          onClick();
+        } else {
+          console.log('[AnimatedTaskCard] Card already selected, ignoring click');
+        }
+      }}
       onMouseEnter={() => !isSelected && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
         "group relative cursor-pointer rounded-[10px] overflow-hidden transition-all duration-300",
         "border border-white/10 bg-black",
-        "px-[14px] pt-[6px] pb-[14px] flex flex-col",
+        "flex flex-col",
         isSelected
-          ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-md"
-          : `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'}`
+          ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[500px] min-h-[450px] px-6 py-6"
+          : `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`
       )}
       style={!isSelected ? {
         ...style,
@@ -76,10 +85,32 @@ export default function AnimatedTaskCard({
 
       {/* Content */}
       <div className="relative flex flex-col">
+        {/* Time Window - Top Left (only show when expanded) */}
+        {isSelected && (
+          <div
+            className="text-[11px] text-gray-400 font-inter font-normal tracking-tight mb-6"
+            style={{ color: 'rgb(156, 163, 175)', paddingLeft: '12px', paddingTop: '12px' }}
+          >
+            {formatTime(task.startTime)} - {formatTime(task.endTime)}
+          </div>
+        )}
+        {/* Time Window - Top Right Corner (only show when not expanded) */}
+        {!isSelected && (
+          <div
+            className="absolute top-1 right-1 text-[7px] text-gray-400 font-inter font-normal tracking-tight text-right whitespace-nowrap"
+            style={{ color: 'rgb(156, 163, 175)' }}
+          >
+            {formatTime(task.startTime)} - {formatTime(task.endTime)}
+          </div>
+        )}
+
         {/* Title */}
         <h3
           className="font-inter font-medium text-[16px] tracking-[-0.3125px] text-gray-100 m-0 mb-[2px]"
-          style={{ color: 'rgb(243, 244, 246)' }}
+          style={{
+            color: 'rgb(243, 244, 246)',
+            paddingLeft: isSelected ? '12px' : '0'
+          }}
         >
           {task.title}
         </h3>
@@ -87,37 +118,46 @@ export default function AnimatedTaskCard({
         {/* Description */}
         <p
           className="font-inter font-normal text-[12px] leading-[16px] tracking-[-0.15px] text-gray-300 m-0 mb-[8px]"
-          style={{ color: 'rgb(209, 213, 219)' }}
+          style={{
+            color: 'rgb(209, 213, 219)',
+            paddingLeft: isSelected ? '12px' : '0'
+          }}
         >
           {task.description}
         </p>
 
-        {/* Start Time */}
-        <p
-          className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300 mb-[8px]"
-          style={{ color: 'rgb(209, 213, 219)' }}
-        >
-          {formatTime(task.startTime)}
-        </p>
+        {/* Start Time - only show when not expanded */}
+        {!isSelected && (
+          <p
+            className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300 mb-[8px]"
+            style={{ color: 'rgb(209, 213, 219)' }}
+          >
+            {formatTime(task.startTime)}
+          </p>
+        )}
 
-        {/* Time Separator Line */}
-        <div className="flex items-center justify-center mb-[8px]">
-          <div className="w-[53px] h-0 border-t border-white/30" />
-        </div>
+        {/* Time Separator Line - only show when not expanded */}
+        {!isSelected && (
+          <div className="flex items-center justify-center mb-[8px]">
+            <div className="w-[53px] h-0 border-t border-white/30" />
+          </div>
+        )}
 
-        {/* End Time */}
-        <p
-          className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300"
-          style={{ color: 'rgb(209, 213, 219)' }}
-        >
-          {formatTime(task.endTime)}
-        </p>
+        {/* End Time - only show when not expanded */}
+        {!isSelected && (
+          <p
+            className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300"
+            style={{ color: 'rgb(209, 213, 219)' }}
+          >
+            {formatTime(task.endTime)}
+          </p>
+        )}
       </div>
 
       {/* Expanded content - only show when selected */}
       {isSelected && (
-        <div className="mt-4 pt-4 border-t border-white/30">
-          <p className="text-gray-300 text-sm">
+        <div className="mt-4">
+          <p className="text-gray-300 text-sm text-center">
             Additional task details can go here...
           </p>
         </div>

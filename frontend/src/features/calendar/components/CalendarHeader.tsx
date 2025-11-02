@@ -5,6 +5,7 @@ interface CalendarHeaderProps {
   weekStart: Date;
   weekEnd: Date;
   onToggleChat?: () => void;
+  isChatOpen?: boolean;
   className?: string;
 }
 
@@ -12,6 +13,7 @@ export default function CalendarHeader({
   weekStart,
   weekEnd,
   onToggleChat,
+  isChatOpen = false,
   className = ''
 }: CalendarHeaderProps) {
   return (
@@ -39,13 +41,15 @@ export default function CalendarHeader({
 
       {/* Right Section - Chat Toggle */}
       {onToggleChat && (
-        <button
-          onClick={onToggleChat}
-          className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
-          aria-label="Toggle chat"
-        >
-          <ChatIcon />
-        </button>
+        <div style={{ visibility: isChatOpen ? 'hidden' : 'visible' }}>
+          <button
+            onClick={onToggleChat}
+            className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
+            aria-label="Toggle chat"
+          >
+            <ChatIcon />
+          </button>
+        </div>
       )}
     </div>
   );
