@@ -78,9 +78,8 @@ async def clean_calendar_db(supabase_client, test_user_id, setup_test_user):
 
     yield
 
-    # Cleanup after test
-    supabase_client.table("calendar_events").delete().eq("user_id", test_user_id).execute()
-    supabase_client.table("calendar_conversations").delete().eq("user_id", test_user_id).execute()
+    # No cleanup after test - pre-test cleanup is sufficient
+    # (Avoids race condition with async conversation persistence)
 
 
 @pytest.fixture

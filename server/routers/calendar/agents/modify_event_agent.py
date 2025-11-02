@@ -80,7 +80,7 @@ async def run_modify_event_agent(
     Returns:
         Agent response confirming event modification
     """
-    from agents import Runner
+    from agents import Runner, RunConfig
 
     # Unwrap context
     def _resolve_context(w):
@@ -95,6 +95,10 @@ async def run_modify_event_agent(
     logger.info(f"[MODIFY_EVENT_AGENT] Processing: {user_intent[:100]}")
 
     try:
+        # Extract model_provider from context
+        model_provider = context.agent_outputs.get("model_provider")
+        logger.info(f"[MODIFY_EVENT_AGENT] Retrieved model_provider from context: {model_provider is not None}")
+
         # Create agent with current week context
         agent = create_modify_event_agent(
             week_snapshot=context.week_snapshot,
@@ -106,10 +110,11 @@ async def run_modify_event_agent(
             starting_agent=agent,
             input=user_intent,
             context=wrapper,
+            run_config=RunConfig(model_provider=model_provider) if model_provider else None,
         )
 
         logger.info(f"[MODIFY_EVENT_AGENT] Completed")
-        return result.output
+        return str(result.final_output) if result.final_output else "Event modified successfully"
 
     except Exception as e:
         logger.error(f"[MODIFY_EVENT_AGENT] Failed: {e}", exc_info=True)

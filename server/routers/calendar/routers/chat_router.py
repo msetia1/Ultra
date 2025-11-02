@@ -4,18 +4,15 @@ import json
 import logging
 from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException, Depends
-from sse_starlette.sse import EventSourceResponse
-from agents import Runner, RunContextWrapper
+from fastapi.responses import StreamingResponse
+from agents import Runner, RunContextWrapper, RunConfig
 from integrations.supabase_service import get_supabase
 from ..models import CalendarChatRequest, CalendarContext
 from ..services import CalendarContextLoader, CalendarConversationManager
-from ..services.openrouter_provider import initialize_openrouter_for_agents
+from ..services.openrouter_provider import OPENROUTER_PROVIDER
 from ..agents import create_calendar_conversation_agent
 
 logger = logging.getLogger(__name__)
-
-# Initialize OpenRouter for Agents SDK (auto-runs on import too, but explicit is better)
-initialize_openrouter_for_agents()
 
 router = APIRouter(prefix="/calendar", tags=["Calendar Chat"])
 
@@ -42,6 +39,7 @@ def _pull_immediate_events(
 
     # Get immediate events list
     immediate_events = context.agent_outputs.get("immediate_sse_events", [])
+    logger.debug(f"[_PULL_IMMEDIATE_EVENTS] Found {len(immediate_events)} events in queue")
     if not immediate_events:
         return []
 
@@ -53,12 +51,15 @@ def _pull_immediate_events(
 
         # Deduplicate by patch_id
         if patch_id and patch_id in emitted_patch_ids:
+            logger.debug(f"[_PULL_IMMEDIATE_EVENTS] Skipping duplicate patch_id: {patch_id}")
             continue
 
         new_events.append(event)
 
         if patch_id:
             emitted_patch_ids.add(patch_id)
+
+    logger.debug(f"[_PULL_IMMEDIATE_EVENTS] Returning {len(new_events)} new events (after dedup)")
 
     # Clear the immediate events queue (already emitted)
     immediate_events.clear()
@@ -71,7 +72,7 @@ async def chat_with_calendar(
     week_id: str,
     request: CalendarChatRequest,
     user_id: str = "00000000-0000-0000-0000-000000000000",  # TODO: Get from auth with Depends(get_current_user)
-) -> EventSourceResponse:
+) -> StreamingResponse:
     """Stream calendar chat responses with real-time patch emission.
 
     SSE Event Types:
@@ -122,10 +123,15 @@ async def chat_with_calendar(
         # Wrap context for Agents SDK
         context_wrapper = RunContextWrapper(calendar_context)
 
+        # Store model_provider in context for child agents to access
+        calendar_context.agent_outputs["model_provider"] = OPENROUTER_PROVIDER
+        logger.info("[CHAT_ROUTER] Stored model_provider in context.agent_outputs for child agents")
+
         logger.info(f"[CHAT_ROUTER] Context loaded, starting streaming agent")
 
         async def event_generator() -> AsyncGenerator[str, None]:
             """Generate SSE events from agent execution IN REAL-TIME."""
+            logger.info("[CHAT_ROUTER] SSE event generator started")
             try:
                 emitted_patch_ids = set()
 
@@ -134,39 +140,51 @@ async def chat_with_calendar(
                     week_snapshot=calendar_context.week_snapshot,
                     conversation_history=history,
                 )
+                logger.info("[CHAT_ROUTER] Conversation agent created")
 
-                # Run agent with streaming
+                # Run agent with streaming and OpenRouter provider
                 streaming_run = Runner.run_streamed(
                     starting_agent=agent,
                     input=request.message,
                     context=context_wrapper,
+                    run_config=RunConfig(model_provider=OPENROUTER_PROVIDER),
                 )
+                logger.info("[CHAT_ROUTER] Starting to stream agent events")
 
                 # Stream events AS THEY HAPPEN
                 async for stream_event in streaming_run.stream_events():
                     # Pull any immediate events that were queued by tools
                     immediate_events = _pull_immediate_events(context_wrapper, emitted_patch_ids)
+                    logger.info(f"[CHAT_ROUTER] Pulled {len(immediate_events)} immediate events from context")
                     for payload in immediate_events:
+                        logger.info(f"[CHAT_ROUTER] Yielding SSE event: type={payload.get('type')}")
                         yield format_sse(payload)
 
                 # Get final result (available after stream completes)
                 final_output = streaming_run.final_output
+                logger.info(f"[CHAT_ROUTER] Final output received: {str(final_output)[:100] if final_output else 'None'}")
 
                 # Get all proposed patches
                 proposed_patches = calendar_context.agent_outputs.get("proposed_calendar_patches", [])
+                logger.info(f"[CHAT_ROUTER] Total patches collected: {len(proposed_patches)}")
 
                 # Final message
                 final_message = str(final_output) if final_output else "I've processed your request."
 
-                # Save conversation turn
-                conversation_manager.add_conversation_turn(
-                    conversation_id=conversation["id"],
-                    user_message=request.message,
-                    agent_response=final_message,
-                    patches=proposed_patches,
-                )
+                # Save conversation turn (best effort - don't fail stream if this errors)
+                try:
+                    conversation_manager.add_conversation_turn(
+                        conversation_id=conversation["id"],
+                        user_message=request.message,
+                        agent_response=final_message,
+                        patches=proposed_patches,
+                    )
+                    logger.info("[CHAT_ROUTER] Conversation turn saved successfully")
+                except Exception as e:
+                    logger.warning(f"[CHAT_ROUTER] Failed to save conversation turn: {e}")
 
                 # Emit final event
+                logger.info(f"[CHAT_ROUTER] Yielding final SSE event with {len(proposed_patches)} patches")
                 yield format_sse({
                     "type": "final",
                     "message": final_message,
@@ -174,7 +192,7 @@ async def chat_with_calendar(
                     "conversation_id": conversation["id"],
                 })
 
-                logger.info(f"[CHAT_ROUTER] Stream completed with {len(proposed_patches)} patches")
+                logger.info(f"[CHAT_ROUTER] Stream completed successfully with {len(proposed_patches)} patches")
 
             except Exception as e:
                 logger.error(f"[CHAT_ROUTER] Stream error: {e}", exc_info=True)
@@ -183,7 +201,7 @@ async def chat_with_calendar(
                     "message": str(e),
                 })
 
-        return EventSourceResponse(
+        return StreamingResponse(
             event_generator(),
             media_type="text/event-stream",
             headers={
@@ -199,5 +217,5 @@ async def chat_with_calendar(
 
 
 def format_sse(payload: dict) -> str:
-    """Format payload as SSE event."""
+    """Format payload as SSE event (trainwithai pattern)."""
     return f"data: {json.dumps(payload)}\n\n"
