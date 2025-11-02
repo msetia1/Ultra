@@ -12,6 +12,40 @@ CREATE TABLE public.Users (
   has_linear boolean NOT NULL DEFAULT false,
   CONSTRAINT Users_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.calendar_conversation_turns (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL,
+  user_message text NOT NULL,
+  agent_response text NOT NULL,
+  patches jsonb DEFAULT '[]'::jsonb,
+  accepted_patch_ids ARRAY DEFAULT '{}'::text[],
+  rejected_patch_ids ARRAY DEFAULT '{}'::text[],
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT calendar_conversation_turns_pkey PRIMARY KEY (id),
+  CONSTRAINT calendar_conversation_turns_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.calendar_conversations(id)
+);
+CREATE TABLE public.calendar_conversations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  week_id text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT calendar_conversations_pkey PRIMARY KEY (id),
+  CONSTRAINT calendar_conversations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.Users(id)
+);
+CREATE TABLE public.calendar_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  description text DEFAULT ''::text,
+  scheduled_date date NOT NULL,
+  start_time time without time zone NOT NULL,
+  end_time time without time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT calendar_events_pkey PRIMARY KEY (id),
+  CONSTRAINT calendar_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.Users(id)
+);
 CREATE TABLE public.github_commit_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   commit_sha text NOT NULL,
