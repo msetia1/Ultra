@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Task } from '../types/calendar.types';
 import { formatTime } from '../utils/timeCalculations';
 import { cn } from '@/lib/utils';
@@ -25,15 +26,16 @@ export default function AnimatedTaskCard({
   const parentTransform = style?.transform || '';
 
   // Render expanded card content
-  const expandedCardContent = isSelected ? (
-    <div
+  const expandedCardContent = (
+    <motion.div
+      key={`expanded-${task.id}`}
       onClick={(e) => {
         console.log('[AnimatedTaskCard] Clicked! isSelected:', isSelected, 'taskId:', task.id);
         e.stopPropagation();
         console.log('[AnimatedTaskCard] Card already selected, ignoring click');
       }}
       className={cn(
-        "group cursor-pointer rounded-[10px] overflow-hidden transition-all duration-300",
+        "group cursor-pointer rounded-[10px] overflow-hidden",
         "border border-white/10 bg-black",
         "flex flex-col",
         "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] min-h-[450px] px-6 py-6"
@@ -44,6 +46,10 @@ export default function AnimatedTaskCard({
         backgroundColor: 'black',
         borderColor: 'rgba(255, 255, 255, 0.1)',
       }}
+      initial={{ scale: 0.5, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.5, opacity: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
     >
       {/* Content */}
       <div className="relative flex flex-col">
@@ -84,8 +90,8 @@ export default function AnimatedTaskCard({
           Additional task details can go here...
         </p>
       </div>
-    </div>
-  ) : null;
+    </motion.div>
+  );
 
   return (
     <>
@@ -228,7 +234,12 @@ export default function AnimatedTaskCard({
       )}
     </div>
     {/* Render expanded card via portal to escape stacking context */}
-    {isSelected && createPortal(expandedCardContent, document.body)}
+    {createPortal(
+      <AnimatePresence>
+        {isSelected && expandedCardContent}
+      </AnimatePresence>,
+      document.body
+    )}
     </>
   );
 }
