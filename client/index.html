@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AI Scheduling Agent</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+		}
+
+		.container {
+			background: white;
+			border-radius: 16px;
+			box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+			max-width: 800px;
+			width: 100%;
+			padding: 40px;
+		}
+
+		h1 {
+			font-size: 32px;
+			font-weight: 700;
+			margin-bottom: 8px;
+			color: #1a202c;
+		}
+
+		.subtitle {
+			color: #718096;
+			margin-bottom: 40px;
+			font-size: 16px;
+		}
+
+		.section {
+			margin-bottom: 32px;
+		}
+
+		.section-title {
+			font-size: 18px;
+			font-weight: 600;
+			margin-bottom: 16px;
+			color: #2d3748;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.status-badge {
+			display: inline-block;
+			padding: 4px 12px;
+			border-radius: 12px;
+			font-size: 12px;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+
+		.status-connected {
+			background: #c6f6d5;
+			color: #22543d;
+		}
+
+		.status-disconnected {
+			background: #fed7d7;
+			color: #742a2a;
+		}
+
+		.button {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			border: none;
+			padding: 14px 28px;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s;
+			display: inline-block;
+			text-decoration: none;
+		}
+
+		.button:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+		}
+
+		.button:active {
+			transform: translateY(0);
+		}
+
+		.button-secondary {
+			background: #e2e8f0;
+			color: #2d3748;
+		}
+
+		.button-secondary:hover {
+			background: #cbd5e0;
+		}
+
+		.card {
+			background: #f7fafc;
+			border-radius: 12px;
+			padding: 20px;
+			margin-bottom: 16px;
+			border: 1px solid #e2e8f0;
+		}
+
+		.card h3 {
+			font-size: 16px;
+			margin-bottom: 8px;
+			color: #2d3748;
+		}
+
+		.card p {
+			color: #718096;
+			font-size: 14px;
+			line-height: 1.6;
+		}
+
+		.data-container {
+			background: #1a202c;
+			border-radius: 8px;
+			padding: 16px;
+			margin-top: 16px;
+			max-height: 400px;
+			overflow-y: auto;
+		}
+
+		.data-container pre {
+			color: #68d391;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre-wrap;
+			word-wrap: break-word;
+		}
+
+		.loading {
+			display: inline-block;
+			width: 16px;
+			height: 16px;
+			border: 2px solid #f3f3f3;
+			border-top: 2px solid #667eea;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin-left: 8px;
+		}
+
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+
+		.button-group {
+			display: flex;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		.metric {
+			display: flex;
+			justify-content: space-between;
+			padding: 12px 0;
+			border-bottom: 1px solid #e2e8f0;
+		}
+
+		.metric:last-child {
+			border-bottom: none;
+		}
+
+		.metric-label {
+			color: #718096;
+			font-size: 14px;
+		}
+
+		.metric-value {
+			color: #2d3748;
+			font-weight: 600;
+			font-size: 14px;
+		}
+
+		.alert {
+			padding: 12px 16px;
+			border-radius: 8px;
+			margin-bottom: 16px;
+			font-size: 14px;
+		}
+
+		.alert-success {
+			background: #c6f6d5;
+			color: #22543d;
+			border: 1px solid #9ae6b4;
+		}
+
+		.alert-error {
+			background: #fed7d7;
+			color: #742a2a;
+			border: 1px solid #fc8181;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>AI Scheduling Agent</h1>
+		<p class="subtitle">Connect your integrations to optimize your schedule</p>
+
+		<!-- Alerts -->
+		<div id="alerts"></div>
+
+		<!-- WHOOP Integration -->
+		<div class="section">
+			<div class="section-title">
+				WHOOP Integration
+				<span id="whoop-status" class="status-badge status-disconnected">Disconnected</span>
+			</div>
+
+			<div class="card">
+				<h3>Connect Your Wearable</h3>
+				<p>Sync your recovery, strain, and sleep data to help optimize your schedule based on your energy levels.</p>
+			</div>
+
+			<div class="button-group">
+				<button class="button" onclick="connectWHOOP()">
+					<span id="connect-text">Connect WHOOP</span>
+					<span id="connect-loading" class="loading" style="display: none;"></span>
+				</button>
+				<button class="button button-secondary" onclick="fetchCycles()">View Data</button>
+			</div>
+
+			<div id="whoop-data" style="display: none;">
+				<div class="data-container">
+					<pre id="whoop-data-content"></pre>
+				</div>
+			</div>
+		</div>
+
+		<!-- GitHub Integration (placeholder) -->
+		<div class="section">
+			<div class="section-title">
+				GitHub Integration
+				<span class="status-badge status-disconnected">Coming Soon</span>
+			</div>
+
+			<div class="card">
+				<h3>Connect Your Code Activity</h3>
+				<p>Track your commit patterns and work sessions to identify your most productive hours.</p>
+			</div>
+
+			<button class="button" disabled style="opacity: 0.5; cursor: not-allowed;">
+				Connect GitHub
+			</button>
+		</div>
+	</div>
+
+	<script>
+		const API_BASE = '';
+
+		// Check URL for status messages
+		window.addEventListener('DOMContentLoaded', () => {
+			const params = new URLSearchParams(window.location.search);
+			const whoopStatus = params.get('whoop');
+			const error = params.get('error');
+
+			if (whoopStatus === 'connected') {
+				showAlert('WHOOP integration connected successfully!', 'success');
+				document.getElementById('whoop-status').className = 'status-badge status-connected';
+				document.getElementById('whoop-status').textContent = 'Connected';
+				
+				// Clean up URL
+				window.history.replaceState({}, document.title, '/');
+				
+				// Auto-fetch data
+				setTimeout(() => fetchCycles(), 1000);
+			}
+
+			if (error) {
+				showAlert('Connection error: ' + error, 'error');
+				window.history.replaceState({}, document.title, '/');
+			}
+		});
+
+		function showAlert(message, type) {
+			const alertsDiv = document.getElementById('alerts');
+			const alert = document.createElement('div');
+			alert.className = `alert alert-${type}`;
+			alert.textContent = message;
+			alertsDiv.appendChild(alert);
+
+			setTimeout(() => {
+				alert.remove();
+			}, 5000);
+		}
+
+		async function connectWHOOP() {
+			const button = document.querySelector('.button');
+			const connectText = document.getElementById('connect-text');
+			const connectLoading = document.getElementById('connect-loading');
+
+			try {
+				connectText.style.display = 'none';
+				connectLoading.style.display = 'inline-block';
+
+				const response = await fetch(`${API_BASE}/auth/whoop/start`, {
+					redirect: 'manual'
+				});
+
+				// Get the redirect URL from response
+				const data = await response.json();
+				
+				// Redirect to WHOOP OAuth
+				window.location.href = `${API_BASE}/auth/whoop/start`;
+
+			} catch (error) {
+				connectText.style.display = 'inline';
+				connectLoading.style.display = 'none';
+				showAlert('Error connecting to WHOOP: ' + error.message, 'error');
+			}
+		}
+
+		async function fetchCycles() {
+			const dataDiv = document.getElementById('whoop-data');
+			const dataContent = document.getElementById('whoop-data-content');
+			const statusBadge = document.getElementById('whoop-status');
+
+			try {
+				const response = await fetch(`${API_BASE}/whoop/cycles?days=7`);
+				const data = await response.json();
+
+				if (response.ok) {
+					statusBadge.className = 'status-badge status-connected';
+					statusBadge.textContent = 'Connected';
+					
+					dataDiv.style.display = 'block';
+					dataContent.textContent = JSON.stringify(data, null, 2);
+					showAlert('Successfully fetched WHOOP data', 'success');
+				} else {
+					showAlert(data.detail || 'Failed to fetch data', 'error');
+				}
+			} catch (error) {
+				showAlert('Error fetching cycles: ' + error.message, 'error');
+			}
+		}
+	</script>
+</body>
+</html>
+
