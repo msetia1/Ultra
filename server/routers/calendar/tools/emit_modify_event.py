@@ -34,7 +34,7 @@ async def emit_modify_event_patch(
     event_id: str,
     date: str,
     instruction: str,
-    lazy_edit: Dict[str, Any],
+    lazy_edit: str,
 ) -> Dict[str, Any]:
     """Emit a patch to modify event fields using Morph API.
 
@@ -43,7 +43,7 @@ async def emit_modify_event_patch(
         event_id: UUID of event to modify
         date: Scheduled date of event (YYYY-MM-DD)
         instruction: First-person description of change (e.g., "I'm changing the time from 2pm to 3pm")
-        lazy_edit: Minimal dict with only changed fields (e.g., {"start_time": "15:00"})
+        lazy_edit: JSON string with minimal changes (e.g., '{"start_time": "15:00"}')
 
     Returns:
         Dict with status, patch_id, and field_patch_count
@@ -51,6 +51,9 @@ async def emit_modify_event_patch(
     try:
         # Unwrap context
         context = _resolve_context(wrapper)
+
+        # Parse lazy_edit JSON string to dict
+        lazy_edit_dict = json.loads(lazy_edit)
 
         logger.info(f"[EMIT_MODIFY_EVENT] Creating patch for event {event_id}")
 
@@ -64,7 +67,7 @@ async def emit_modify_event_patch(
         # Call Morph API to merge changes
         client = get_openrouter_client()
         original_json = json.dumps(original_event, indent=2)
-        lazy_edit_json = json.dumps(lazy_edit)
+        lazy_edit_json = json.dumps(lazy_edit_dict)
 
         morph_prompt = f"<instruction>{instruction}</instruction>\n<code>{original_json}</code>\n<update>{lazy_edit_json}</update>"
 

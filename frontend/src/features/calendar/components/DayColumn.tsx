@@ -10,6 +10,8 @@ interface DayColumnProps {
   selectedTaskId: string | null;
   onTaskClick: (taskId: string) => void;
   isChatOpen?: boolean;
+  isVisible: boolean;
+  index: number;
 }
 
 export default function DayColumn({
@@ -18,7 +20,9 @@ export default function DayColumn({
   className = '',
   selectedTaskId,
   onTaskClick,
-  isChatOpen
+  isChatOpen,
+  isVisible,
+  index
 }: DayColumnProps) {
   const { name, number } = getDayInfo(date);
 
@@ -29,6 +33,11 @@ export default function DayColumn({
         flex flex-col
         ${className}
       `}
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
+        transition: `opacity 600ms ease-out ${index * 100}ms, transform 600ms ease-out ${index * 100}ms`,
+      }}
     >
       {/* Day Header */}
       <div className="bg-black border-b border-[#252525] px-4 pt-4 pb-px flex flex-col" style={{ paddingTop: '16px', paddingLeft: '16px', paddingRight: '16px', paddingBottom: '1px' }}>

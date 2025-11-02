@@ -13,7 +13,7 @@ class CalendarConversationManager:
     def __init__(self, db_client: Client):
         self.db = db_client
 
-    async def get_or_create_conversation(
+    def get_or_create_conversation(
         self,
         week_id: str,
         user_id: str,
@@ -62,7 +62,7 @@ class CalendarConversationManager:
             logger.error(f"[CONVERSATION_MANAGER] Failed to get/create conversation: {e}", exc_info=True)
             raise
 
-    async def get_conversation_context(
+    def get_conversation_context(
         self,
         conversation_id: str,
         max_turns: int = 10,
@@ -106,7 +106,7 @@ class CalendarConversationManager:
             logger.error(f"[CONVERSATION_MANAGER] Failed to load context: {e}", exc_info=True)
             return "(error loading conversation history)"
 
-    async def add_conversation_turn(
+    def add_conversation_turn(
         self,
         conversation_id: str,
         user_message: str,
@@ -144,7 +144,7 @@ class CalendarConversationManager:
             logger.error(f"[CONVERSATION_MANAGER] Failed to add turn: {e}", exc_info=True)
             raise
 
-    async def record_patch_action(
+    def record_patch_action(
         self,
         conversation_id: str,
         accepted_ids: List[str] = None,

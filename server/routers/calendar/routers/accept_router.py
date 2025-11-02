@@ -21,7 +21,7 @@ router = APIRouter(prefix="/calendar", tags=["Calendar Accept"])
 async def accept_calendar_patches(
     week_id: str,
     request: CalendarAcceptRequest,
-    user_id: str = "00000000-0000-0000-0000-000000000000",  # TODO: Get from auth
+    user_id: str = "00000000-0000-0000-0000-000000000000",  # TODO: Get from auth with Depends(get_current_user)
 ) -> dict:
     """Accept and persist calendar patches to database.
 
@@ -50,13 +50,13 @@ async def accept_calendar_patches(
 
         # Apply patches to database
         persistence = CalendarPersistenceService(db_client)
-        result = await persistence.apply_calendar_patches(user_id, patches)
+        result = persistence.apply_calendar_patches(user_id, patches)
 
         # Record patch acceptance in conversation if conversation_id provided
         if request.conversation_id:
             conversation_manager = CalendarConversationManager(db_client)
             patch_ids = [p.get("patch_id") for p in request.patches if p.get("patch_id")]
-            await conversation_manager.record_patch_action(
+            conversation_manager.record_patch_action(
                 conversation_id=request.conversation_id,
                 accepted_ids=patch_ids,
             )

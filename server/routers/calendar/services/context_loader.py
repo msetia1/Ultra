@@ -14,7 +14,7 @@ class CalendarContextLoader:
     def __init__(self, db_client: Client):
         self.db = db_client
 
-    async def load_week_context(
+    def load_week_context(
         self,
         week_id: str,
         user_id: str,

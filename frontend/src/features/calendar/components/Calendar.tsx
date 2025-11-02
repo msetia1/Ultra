@@ -21,11 +21,24 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
   } = useCalendarStore();
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   // Load mock data on mount
   useEffect(() => {
     loadMockData();
   }, [loadMockData]);
+
+  // Trigger animation when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(false);
+    }
+  }, [isLoading]);
 
   const weekEnd = getWeekEnd(currentWeekStart);
 
@@ -64,6 +77,7 @@ export default function Calendar({ onToggleChat, isChatOpen, className = '' }: C
           selectedTaskId={selectedTaskId}
           onTaskClick={handleTaskClick}
           isChatOpen={isChatOpen}
+          isVisible={isVisible}
         />
       )}
 
