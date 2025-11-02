@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Task } from '../types/calendar.types';
 import { formatTime } from '../utils/timeCalculations';
 import { cn } from '@/lib/utils';
@@ -23,7 +25,76 @@ export default function AnimatedTaskCard({
   // Extract transform from parent style for proper hover handling
   const parentTransform = style?.transform || '';
 
+  // Render expanded card content
+  const expandedCardContent = (
+    <motion.div
+      key={`expanded-${task.id}`}
+      onClick={(e) => {
+        console.log('[AnimatedTaskCard] Clicked! isSelected:', isSelected, 'taskId:', task.id);
+        e.stopPropagation();
+        console.log('[AnimatedTaskCard] Card already selected, ignoring click');
+      }}
+      className={cn(
+        "group cursor-pointer rounded-[10px] overflow-hidden",
+        "border border-white/10 bg-black",
+        "flex flex-col",
+        "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] min-h-[450px] px-6 py-6"
+      )}
+      style={{
+        position: 'fixed',
+        zIndex: 9999,
+        backgroundColor: 'black',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
+      initial={{ scale: 0.5, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.5, opacity: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      {/* Content */}
+      <div className="relative flex flex-col">
+        {/* Time Window - Top Left (only show when expanded) */}
+        <div
+          className="text-[11px] text-gray-400 font-inter font-normal tracking-tight mb-6"
+          style={{ color: 'rgb(156, 163, 175)', paddingLeft: '12px', paddingTop: '12px' }}
+        >
+          {formatTime(task.startTime)} - {formatTime(task.endTime)}
+        </div>
+
+        {/* Title */}
+        <h3
+          className="font-inter font-medium text-[16px] tracking-[-0.3125px] text-gray-100 m-0 mb-[2px]"
+          style={{
+            color: 'rgb(243, 244, 246)',
+            paddingLeft: '12px'
+          }}
+        >
+          {task.title}
+        </h3>
+
+        {/* Description */}
+        <p
+          className="font-inter font-normal text-[12px] leading-[16px] tracking-[-0.15px] text-gray-300 m-0 mb-[8px]"
+          style={{
+            color: 'rgb(209, 213, 219)',
+            paddingLeft: '12px'
+          }}
+        >
+          {task.description}
+        </p>
+      </div>
+
+      {/* Expanded content */}
+      <div className="mt-4">
+        <p className="text-gray-300 text-sm text-center">
+          Additional task details can go here...
+        </p>
+      </div>
+    </motion.div>
+  );
+
   return (
+    <>
     <div
       onClick={(e) => {
         console.log('[AnimatedTaskCard] Clicked! isSelected:', isSelected, 'taskId:', task.id);
@@ -31,8 +102,6 @@ export default function AnimatedTaskCard({
         if (!isSelected) {
           console.log('[AnimatedTaskCard] Opening card, calling onClick');
           onClick();
-        } else {
-          console.log('[AnimatedTaskCard] Card already selected, ignoring click');
         }
       }}
       onMouseEnter={() => !isSelected && setIsHovered(true)}
@@ -41,19 +110,15 @@ export default function AnimatedTaskCard({
         "group relative cursor-pointer rounded-[10px] overflow-hidden transition-all duration-300",
         "border border-white/10 bg-black",
         "flex flex-col",
-        isSelected
-          ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[500px] min-h-[450px] px-6 py-6"
-          : `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`
+        `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
+        isSelected && "invisible"
       )}
-      style={!isSelected ? {
+      style={{
         ...style,
         backgroundColor: 'black',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         transform: isHovered ? `${parentTransform} translateY(-2px)` : parentTransform,
         boxShadow: isHovered ? '0 2px 12px rgba(255, 255, 255, 0.03)' : 'none',
-      } : {
-        backgroundColor: 'black',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
       }}
     >
       {/* Radial gradient dot pattern background - visible on hover when not selected */}
@@ -168,5 +233,13 @@ export default function AnimatedTaskCard({
         <div className="absolute inset-0 -z-10 rounded-[10px] p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       )}
     </div>
+    {/* Render expanded card via portal to escape stacking context */}
+    {createPortal(
+      <AnimatePresence>
+        {isSelected && expandedCardContent}
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   );
 }
