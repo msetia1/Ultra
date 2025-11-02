@@ -12,7 +12,7 @@ interface Question {
 const questions: Question[] = [
   {
     id: 'values',
-    text: 'What are you values?',
+    text: 'What are your values?',
     storeField: 'values',
     updateAction: 'updateValues',
   },
