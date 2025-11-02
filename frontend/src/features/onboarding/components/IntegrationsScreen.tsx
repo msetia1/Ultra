@@ -3,6 +3,11 @@ import OnboardingLogo from './OnboardingLogo';
 import IntegrationCard from './IntegrationCard';
 import { integrations } from '../data/integrations';
 import { useOnboardingStore } from '../store/onboardingStore';
+import {
+  startWhoopOAuth,
+  startLinearOAuth,
+  startGithubOAuth,
+} from '../api/integrationsApi';
 
 export default function IntegrationsScreen() {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,9 +30,25 @@ export default function IntegrationsScreen() {
   const handleToggleConnection = (id: string) => {
     if (connectedIntegrations.includes(id)) {
       disconnectIntegration(id);
-    } else {
-      connectIntegration(id);
+      return;
     }
+
+    if (id === 'whoop') {
+      startWhoopOAuth();
+      return;
+    }
+
+    if (id === 'linear') {
+      startLinearOAuth();
+      return;
+    }
+
+    if (id === 'github') {
+      startGithubOAuth();
+      return;
+    }
+
+    connectIntegration(id);
   };
 
   const handleFinishClick = () => {
