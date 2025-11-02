@@ -11,6 +11,7 @@ interface AnimatedTaskCardProps {
   onClick: () => void;
   style?: React.CSSProperties;
   isChatOpen?: boolean;
+  isHighlighted?: boolean;
 }
 
 export default function AnimatedTaskCard({
@@ -18,7 +19,8 @@ export default function AnimatedTaskCard({
   isSelected,
   onClick,
   style,
-  isChatOpen
+  isChatOpen,
+  isHighlighted = false
 }: AnimatedTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -116,9 +118,14 @@ export default function AnimatedTaskCard({
       style={{
         ...style,
         backgroundColor: 'black',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: isHighlighted ? 'rgba(252, 236, 201, 0.6)' : 'rgba(255, 255, 255, 0.1)',
         transform: isHovered ? `${parentTransform} translateY(-2px)` : parentTransform,
-        boxShadow: isHovered ? '0 2px 12px rgba(255, 255, 255, 0.03)' : 'none',
+        boxShadow: isHighlighted
+          ? '0 0 20px rgba(252, 236, 201, 0.4), 0 0 40px rgba(252, 236, 201, 0.2)'
+          : isHovered
+            ? '0 2px 12px rgba(255, 255, 255, 0.03)'
+            : 'none',
+        animation: isHighlighted ? 'pulse-glow 2s ease-in-out infinite' : 'none',
       }}
     >
       {/* Radial gradient dot pattern background - visible on hover when not selected */}

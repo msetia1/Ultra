@@ -25,7 +25,7 @@ export default function MessageList({
 
   return (
     <div
-      className="flex-1 overflow-y-auto space-y-4"
+      className="flex-1 overflow-y-auto space-y-4 scrollbar-hide"
       style={{
         backgroundColor: '#000000',
         paddingLeft: '24px',

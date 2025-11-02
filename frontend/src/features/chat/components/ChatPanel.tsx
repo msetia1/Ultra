@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
+import { useCalendarStore } from '@/features/calendar/store/calendarStore';
 import { X, Plus } from 'lucide-react';
 import { useCalendarChat } from '@/features/calendar/hooks/useCalendarChat';
-import PatchPreview from '@/features/calendar/components/PatchPreview';
 import ChatInput from './ChatInput';
 import MessageList from './MessageList';
 
@@ -17,7 +17,6 @@ export default function ChatPanel() {
     clearMessages
   } = useChatStore();
   const [input, setInput] = useState('');
-  const [isAccepting, setIsAccepting] = useState(false);
 
   // Get current week_id (you may want to pass this as a prop)
   const getCurrentWeekId = () => {
@@ -39,18 +38,52 @@ export default function ChatPanel() {
     clearPatches,
   } = useCalendarChat(weekId);
 
-  // Sync backend AI response to Zustand store when streaming completes
+  const { setProposedPatches, commitChanges } = useCalendarStore();
+
+  // Sync proposed patches to calendar store for live UI updates
   useEffect(() => {
-    if (!isStreaming && streamedMessage) {
-      useChatStore.getState().addMessage(streamedMessage, 'ai');
-      // Clear the streamed message to avoid duplicate display
-      clearPatches();
+    if (proposedPatches.length > 0) {
+      console.log('[ChatPanel] Syncing', proposedPatches.length, 'patches to calendarStore');
+      setProposedPatches(proposedPatches);
     }
-  }, [isStreaming, streamedMessage, clearPatches]);
+  }, [proposedPatches, setProposedPatches]);
+
+  // Sync backend AI response to Zustand store when streaming completes
+  // Auto-accept patches and call backend API
+  useEffect(() => {
+    if (!isStreaming && streamedMessage && proposedPatches.length > 0) {
+      useChatStore.getState().addMessage(streamedMessage, 'ai');
+
+      // Auto-accept patches by calling backend API
+      (async () => {
+        try {
+          const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+          const response = await fetch(`${API_BASE_URL}/calendar/accept-patches/${weekId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              patches: proposedPatches,
+              conversation_id: conversationId,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error('[ChatPanel] Failed to accept patches:', response.status);
+          } else {
+            console.log('[ChatPanel] Patches auto-accepted successfully');
+            commitChanges(); // Clear pending state after successful API call
+          }
+        } catch (error) {
+          console.error('[ChatPanel] Error auto-accepting patches:', error);
+        }
+      })();
+    }
+  }, [isStreaming, streamedMessage, proposedPatches, conversationId, weekId, commitChanges]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isStreaming || isAccepting) return;
+    if (!input.trim() || isStreaming) return;
 
     const messageText = input.trim();
 
@@ -66,39 +99,6 @@ export default function ChatPanel() {
 
   const handleInputChange = (newValue: string) => {
     setInput(newValue);
-  };
-
-  const handleAccept = async (patches: any[]) => {
-    try {
-      setIsAccepting(true);
-
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-      const response = await fetch(`${API_BASE_URL}/calendar/accept-patches/${weekId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patches,
-          conversation_id: conversationId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      // Clear patches and refresh calendar (you may want to trigger a reload)
-      clearPatches();
-
-      // TODO: Trigger calendar data refresh
-      window.location.reload(); // Simple approach, can be improved
-
-    } catch (error) {
-      console.error('Failed to accept patches:', error);
-      alert('Failed to apply changes. Please try again.');
-    } finally {
-      setIsAccepting(false);
-    }
   };
 
   if (!isOpen) {
@@ -162,16 +162,6 @@ export default function ChatPanel() {
         error={error}
       />
 
-      {/* Patch Preview */}
-      {proposedPatches.length > 0 && (
-        <PatchPreview
-          patches={proposedPatches}
-          onAccept={handleAccept}
-          onReject={clearPatches}
-          isAccepting={isAccepting}
-        />
-      )}
-
       {/* Input */}
       <div
         className="shrink-0"
@@ -187,7 +177,7 @@ export default function ChatPanel() {
           value={input}
           onChange={handleInputChange}
           onSubmit={handleSubmit}
-          isLoading={isStreaming || isAccepting}
+          isLoading={isStreaming}
           placeholder="Add meeting tomorrow at 2pm..."
         />
       </div>

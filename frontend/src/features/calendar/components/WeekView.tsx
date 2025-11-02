@@ -10,6 +10,7 @@ interface WeekViewProps {
   onTaskClick: (taskId: string) => void;
   isChatOpen?: boolean;
   isVisible: boolean;
+  highlightedTaskIds: Set<string>;
 }
 
 export default function WeekView({
@@ -19,7 +20,8 @@ export default function WeekView({
   selectedTaskId,
   onTaskClick,
   isChatOpen,
-  isVisible
+  isVisible,
+  highlightedTaskIds
 }: WeekViewProps) {
   const weekDates = getWeekDates(weekStart);
 
@@ -46,6 +48,7 @@ export default function WeekView({
           isChatOpen={isChatOpen}
           isVisible={isVisible}
           index={index}
+          highlightedTaskIds={highlightedTaskIds}
         />
       ))}
     </div>

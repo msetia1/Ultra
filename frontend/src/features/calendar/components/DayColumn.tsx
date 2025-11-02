@@ -12,6 +12,7 @@ interface DayColumnProps {
   isChatOpen?: boolean;
   isVisible: boolean;
   index: number;
+  highlightedTaskIds: Set<string>;
 }
 
 export default function DayColumn({
@@ -22,7 +23,8 @@ export default function DayColumn({
   onTaskClick,
   isChatOpen,
   isVisible,
-  index
+  index,
+  highlightedTaskIds
 }: DayColumnProps) {
   const { name, number } = getDayInfo(date);
 
@@ -69,6 +71,7 @@ export default function DayColumn({
               isSelected={selectedTaskId === task.id}
               onClick={() => onTaskClick(task.id)}
               isChatOpen={isChatOpen}
+              isHighlighted={highlightedTaskIds.has(task.id)}
               style={{
                 top: `${topPosition}%`,
                 height: `${height}%`,

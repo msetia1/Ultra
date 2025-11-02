@@ -3,6 +3,7 @@ import { useCalendarStore } from '../store/calendarStore';
 import { getWeekEnd, getWeekIdFromDate } from '../utils/dateHelpers';
 import CalendarHeader from './CalendarHeader';
 import WeekView from './WeekView';
+import RevertButton from './RevertButton';
 
 interface CalendarProps {
   onToggleChat?: () => void;
@@ -24,7 +25,10 @@ export default function Calendar({
     tasks,
     isLoading,
     error,
-    loadWeekEvents
+    loadWeekEvents,
+    highlightedTaskIds,
+    hasPendingChanges,
+    revertChanges
   } = useCalendarStore();
 
   const [isVisible, setIsVisible] = useState(false);
@@ -81,7 +85,13 @@ export default function Calendar({
           onTaskClick={onTaskClick}
           isChatOpen={isChatOpen}
           isVisible={isVisible}
+          highlightedTaskIds={highlightedTaskIds}
         />
+      )}
+
+      {/* Revert Button - Shows when there are pending changes */}
+      {hasPendingChanges && (
+        <RevertButton onRevert={revertChanges} />
       )}
     </div>
   );
