@@ -1,7 +1,9 @@
 import os
+import logging
+import time
 from typing import Optional
 from urllib.parse import quote_plus
-from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -35,9 +37,20 @@ from integrations.linear_service import (
 	create_issue,
 )
 
-from routers.calendar.routers import chat_router, accept_router
+from routers.calendar.routers import chat_router, accept_router, generation_router
 
 load_dotenv()
+
+# Configure logging for the application
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(name)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+
+# Set specific loggers to INFO for calendar agents
+logging.getLogger("routers.calendar").setLevel(logging.INFO)
+logging.getLogger("agents").setLevel(logging.INFO)
 
 app = FastAPI(title="AI Scheduling Agent API")
 
@@ -52,11 +65,13 @@ def _frontend_redirect(path: str) -> RedirectResponse:
 # Include calendar routers
 app.include_router(chat_router)
 app.include_router(accept_router)
+app.include_router(generation_router)
 
 # CORS middleware for frontend
 # Determine allowed origins based on environment
 allowed_origins = [
 	"http://localhost:3000",
+	"http://localhost:5173",  # Vite default port
 	"http://localhost:8000",
 	"http://127.0.0.1:8000",
 ]
@@ -75,6 +90,26 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+
+# Request logging middleware for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+	"""Log all HTTP requests for debugging."""
+	start_time = time.time()
+
+	# Log incoming request
+	logging.info(f"[REQUEST] {request.method} {request.url.path}")
+	logging.info(f"[REQUEST] Origin: {request.headers.get('origin', 'NOT SET')}")
+	logging.info(f"[REQUEST] Content-Type: {request.headers.get('content-type', 'NOT SET')}")
+
+	# Process request
+	response = await call_next(request)
+
+	# Log response
+	process_time = time.time() - start_time
+	logging.info(f"[RESPONSE] Status: {response.status_code} | Time: {process_time:.3f}s")
+
+	return response
 
 # Serve static files from static directory (built frontend)
 static_path = os.path.join(os.path.dirname(__file__), "static")

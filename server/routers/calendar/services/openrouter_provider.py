@@ -1,87 +1,76 @@
-"""OpenRouter provider configuration for Agents SDK."""
+"""OpenRouter model provider for Agents SDK.
+
+Implements custom ModelProvider that routes all model calls through OpenRouter,
+allowing use of models like Claude (anthropic/*) via the Agents SDK.
+
+Pattern based on Plan Editor V2 implementation.
+"""
 
 import os
 import logging
-from typing import Optional
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
+from agents import ModelProvider, OpenAIChatCompletionsModel, Model, set_tracing_disabled
+
+# Disable tracing for calendar chat (hackathon project, no LangSmith setup)
+set_tracing_disabled(True)
 
 logger = logging.getLogger(__name__)
 
-# Global OpenRouter client instances
-_openrouter_sync_client: Optional[OpenAI] = None
-_openrouter_async_client: Optional[AsyncOpenAI] = None
-_initialized = False
+# OpenRouter client for Agents SDK
+openrouter_client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
 
 
-def initialize_openrouter_for_agents():
-    """Initialize OpenRouter as the default OpenAI client for Agents SDK.
+class OpenRouterModelProvider(ModelProvider):
+    """Model provider that routes all models through OpenRouter.
 
-    This configures the Agents SDK to route all model calls through OpenRouter
-    instead of directly to OpenAI. This allows using models like Claude through
-    the Agents SDK.
+    This allows the Agents SDK to use any model supported by OpenRouter,
+    including anthropic/claude-*, google/gemini-*, etc.
 
-    Must be called before running any agents.
+    The provider accepts any model name and passes it directly to OpenRouter,
+    which handles the routing to the appropriate provider.
     """
-    global _openrouter_sync_client, _openrouter_async_client, _initialized
 
-    if _initialized:
-        logger.debug("[OPENROUTER_PROVIDER] Already initialized")
-        return
+    def get_model(self, model_name: str | None) -> Model:
+        """Get model instance for the given model name.
 
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENROUTER_API_KEY not found in environment. "
-            "Set this to use Agents SDK with OpenRouter."
+        Args:
+            model_name: Full model name (e.g., "anthropic/claude-3.5-sonnet")
+
+        Returns:
+            OpenAIChatCompletionsModel configured with OpenRouter client
+        """
+        return OpenAIChatCompletionsModel(
+            model=model_name,
+            openai_client=openrouter_client,
         )
 
-    # Create OpenAI clients configured to use OpenRouter
-    _openrouter_sync_client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+    def supports_model(self, model_name: str) -> bool:
+        """Check if this provider supports the given model.
 
-    _openrouter_async_client = AsyncOpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+        Args:
+            model_name: Model name to check
 
-    # Set as default clients for Agents SDK
-    from agents import set_default_openai_client
-
-    set_default_openai_client(_openrouter_sync_client, _openrouter_async_client)
-
-    _initialized = True
-    logger.info("[OPENROUTER_PROVIDER] Initialized OpenRouter for Agents SDK")
+        Returns:
+            True - OpenRouter handles all model routing
+        """
+        # Accept all model names - OpenRouter handles routing
+        return True
 
 
-def get_openrouter_sync_client() -> OpenAI:
-    """Get OpenRouter-configured sync OpenAI client.
-
-    Returns:
-        Sync OpenAI client pointing at OpenRouter
-    """
-    if not _initialized:
-        initialize_openrouter_for_agents()
-    return _openrouter_sync_client
+# Singleton provider instance
+OPENROUTER_PROVIDER = OpenRouterModelProvider()
 
 
 def get_openrouter_async_client() -> AsyncOpenAI:
     """Get OpenRouter-configured async OpenAI client.
 
+    This client is used for direct API calls (e.g., Morph API) that don't
+    go through the Agents SDK.
+
     Returns:
         Async OpenAI client pointing at OpenRouter
     """
-    if not _initialized:
-        initialize_openrouter_for_agents()
-    return _openrouter_async_client
-
-
-# Initialize automatically on import for convenience
-try:
-    initialize_openrouter_for_agents()
-except Exception as e:
-    logger.warning(
-        f"[OPENROUTER_PROVIDER] Could not auto-initialize: {e}. "
-        "Call initialize_openrouter_for_agents() explicitly if needed."
-    )
+    return openrouter_client

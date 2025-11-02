@@ -24,20 +24,21 @@ async def test_full_add_workflow(
 ):
     """Test complete workflow: Chat to add event → Accept patches → Verify in DB."""
     # Step 1: Chat to add event
-    chat_response = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={"message": "Add a project review meeting tomorrow at 3pm for 2 hours"},
-    )
+        timeout=None,
+    ) as chat_response:
+        assert chat_response.status_code == 200
 
-    assert chat_response.status_code == 200
+        # Step 2: Parse patches from SSE stream
+        events = await parse_sse_stream(chat_response)
+        patches = extract_patches_from_events(events)
+        assert len(patches) >= 1, "Should have add patch"
 
-    # Step 2: Parse patches from SSE stream
-    events = await parse_sse_stream(chat_response)
-    patches = extract_patches_from_events(events)
-    assert len(patches) >= 1, "Should have add patch"
-
-    final_event = next(e for e in events if e.get("type") == "final")
-    conversation_id = final_event.get("conversation_id")
+        final_event = next(e for e in events if e.get("type") == "final")
+        conversation_id = final_event.get("conversation_id")
 
     # Step 3: Accept patches
     accept_response = await async_client.post(
@@ -82,16 +83,17 @@ async def test_full_modify_workflow(
     assert original_event["start_time"] == "14:00:00"
 
     # Step 1: Chat to modify event
-    chat_response = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={"message": "Change the Team Meeting title to 'Sprint Planning' and move it to 10am"},
-    )
+        timeout=None,
+    ) as chat_response:
+        assert chat_response.status_code == 200
 
-    assert chat_response.status_code == 200
-
-    # Step 2: Parse patches
-    events = await parse_sse_stream(chat_response)
-    patches = extract_patches_from_events(events)
+        # Step 2: Parse patches
+        events = await parse_sse_stream(chat_response)
+        patches = extract_patches_from_events(events)
 
     # Should have modify patch
     modify_patches = [p for p in patches if p["op"] == "modify_event"]
@@ -121,15 +123,16 @@ async def test_complex_conversation_workflow(
 ):
     """Test multi-turn conversation with multiple operations."""
     # Turn 1: Add an event
-    response1 = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={"message": "Add a client demo tomorrow at 2pm"},
-    )
-
-    events1 = await parse_sse_stream(response1)
-    patches1 = extract_patches_from_events(events1)
-    final1 = next(e for e in events1 if e.get("type") == "final")
-    conversation_id = final1.get("conversation_id")
+        timeout=None,
+    ) as response1:
+        events1 = await parse_sse_stream(response1)
+        patches1 = extract_patches_from_events(events1)
+        final1 = next(e for e in events1 if e.get("type") == "final")
+        conversation_id = final1.get("conversation_id")
 
     # Accept first patches
     await async_client.post(
@@ -146,16 +149,17 @@ async def test_complex_conversation_workflow(
     event_id = event["id"]
 
     # Turn 2: Modify it (using conversation history to find "it")
-    response2 = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={
             "message": "Actually, can you make it 3pm instead? And extend it to 90 minutes",
             "conversation_id": conversation_id,
         },
-    )
-
-    events2 = await parse_sse_stream(response2)
-    patches2 = extract_patches_from_events(events2)
+        timeout=None,
+    ) as response2:
+        events2 = await parse_sse_stream(response2)
+        patches2 = extract_patches_from_events(events2)
 
     # Should have modify patches
     assert any(p["op"] == "modify_event" for p in patches2)
@@ -175,16 +179,17 @@ async def test_complex_conversation_workflow(
     assert updated_event["end_time"] == "16:30:00"  # 90 minutes later
 
     # Turn 3: Remove it
-    response3 = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={
             "message": "Actually cancel that demo",
             "conversation_id": conversation_id,
         },
-    )
-
-    events3 = await parse_sse_stream(response3)
-    patches3 = extract_patches_from_events(events3)
+        timeout=None,
+    ) as response3:
+        events3 = await parse_sse_stream(response3)
+        patches3 = extract_patches_from_events(events3)
 
     # Should have remove patch
     assert any(p["op"] == "remove_event" for p in patches3)
@@ -212,18 +217,19 @@ async def test_batch_operations_workflow(
 ):
     """Test adding multiple events in one conversation."""
     # Add multiple events in one message
-    chat_response = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={
             "message": "Add these events for tomorrow: breakfast at 8am, lunch at 12pm, and dinner at 6pm"
         },
-    )
+        timeout=None,
+    ) as chat_response:
+        assert chat_response.status_code == 200
 
-    assert chat_response.status_code == 200
-
-    # Parse patches
-    events = await parse_sse_stream(chat_response)
-    patches = extract_patches_from_events(events)
+        # Parse patches
+        events = await parse_sse_stream(chat_response)
+        patches = extract_patches_from_events(events)
 
     # Should have 3 add patches
     add_patches = [p for p in patches if p["op"] == "add_event"]
@@ -267,15 +273,16 @@ async def test_agents_sdk_integration(
     # 2. SSE streaming is working correctly
     # 3. Tools are being called via @function_tool decorator
 
-    chat_response = await async_client.post(
+    async with async_client.stream(
+        "POST",
         f"/calendar/chat/{sample_week_id}",
         json={"message": "Add a quick test event tomorrow at noon"},
-    )
+        timeout=None,
+    ) as chat_response:
+        assert chat_response.status_code == 200
 
-    assert chat_response.status_code == 200
-
-    # Parse events
-    events = await parse_sse_stream(chat_response)
+        # Parse events
+        events = await parse_sse_stream(chat_response)
 
     # Critical validation: Patches should emit BEFORE final event (streaming)
     patch_events = [e for e in events if e.get("type") == "patch_proposed"]

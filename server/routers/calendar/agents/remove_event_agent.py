@@ -61,7 +61,7 @@ CONVERSATION HISTORY:
 
 
 @function_tool
-def run_remove_event_agent(
+async def run_remove_event_agent(
     wrapper: RunContextWrapper[CalendarContext],
     user_intent: str,
 ) -> str:
@@ -74,7 +74,7 @@ def run_remove_event_agent(
     Returns:
         Agent response confirming event removal
     """
-    from agents import Runner
+    from agents import Runner, RunConfig
 
     # Unwrap context
     def _resolve_context(w):
@@ -89,6 +89,10 @@ def run_remove_event_agent(
     logger.info(f"[REMOVE_EVENT_AGENT] Processing: {user_intent[:100]}")
 
     try:
+        # Extract model_provider from context
+        model_provider = context.agent_outputs.get("model_provider")
+        logger.info(f"[REMOVE_EVENT_AGENT] Retrieved model_provider from context: {model_provider is not None}")
+
         # Create agent with current week context
         agent = create_remove_event_agent(
             week_snapshot=context.week_snapshot,
@@ -96,15 +100,16 @@ def run_remove_event_agent(
             conversation_history=context.conversation_history or "",
         )
 
-        # Run agent to completion
-        result = Runner.run_sync(
+        # Run agent to completion with model provider
+        result = await Runner.run(
             starting_agent=agent,
             input=user_intent,
             context=wrapper,
+            run_config=RunConfig(model_provider=model_provider) if model_provider else None,
         )
 
         logger.info(f"[REMOVE_EVENT_AGENT] Completed")
-        return result.output
+        return str(result.final_output) if result.final_output else "Event removed successfully"
 
     except Exception as e:
         logger.error(f"[REMOVE_EVENT_AGENT] Failed: {e}", exc_info=True)

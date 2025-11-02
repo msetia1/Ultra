@@ -14,6 +14,11 @@ from .patches import (
 )
 from .requests import CalendarChatRequest, CalendarAcceptRequest
 from .context import CalendarContext
+from .generation import (
+    CalendarEventGeneration,
+    WeekEventsGeneration,
+    WeekGenerationRequest,
+)
 
 __all__ = [
     "CalendarPatch",
@@ -29,4 +34,7 @@ __all__ = [
     "CalendarChatRequest",
     "CalendarAcceptRequest",
     "CalendarContext",
+    "CalendarEventGeneration",
+    "WeekEventsGeneration",
+    "WeekGenerationRequest",
 ]

@@ -32,17 +32,21 @@ class CalendarConversationManager:
         try:
             if conversation_id:
                 # Fetch existing conversation
-                response = (
-                    self.db.table("calendar_conversations")
-                    .select("*")
-                    .eq("id", conversation_id)
-                    .eq("user_id", user_id)
-                    .single()
-                    .execute()
-                )
-                if response.data:
-                    logger.info(f"[CONVERSATION_MANAGER] Using existing conversation {conversation_id}")
-                    return response.data
+                try:
+                    response = (
+                        self.db.table("calendar_conversations")
+                        .select("*")
+                        .eq("id", conversation_id)
+                        .eq("user_id", user_id)
+                        .single()
+                        .execute()
+                    )
+                    if response.data:
+                        logger.info(f"[CONVERSATION_MANAGER] Using existing conversation {conversation_id}")
+                        return response.data
+                except Exception as fetch_error:
+                    logger.warning(f"[CONVERSATION_MANAGER] Conversation {conversation_id} not found, creating new: {fetch_error}")
+                    # Fall through to create new conversation
 
             # Create new conversation
             response = (
