@@ -6,7 +6,7 @@ import { useOnboardingStore } from '../store/onboardingStore';
 import {
   startWhoopOAuth,
   startLinearOAuth,
-  connectGithubWithPat,
+  startGithubOAuth,
 } from '../api/integrationsApi';
 
 export default function IntegrationsScreen() {
@@ -27,7 +27,7 @@ export default function IntegrationsScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleToggleConnection = async (id: string) => {
+  const handleToggleConnection = (id: string) => {
     if (connectedIntegrations.includes(id)) {
       disconnectIntegration(id);
       return;
@@ -44,16 +44,7 @@ export default function IntegrationsScreen() {
     }
 
     if (id === 'github') {
-      const token = window.prompt('Enter your GitHub Personal Access Token (repo scope required):');
-      if (!token) return;
-
-      try {
-        await connectGithubWithPat(token.trim());
-        connectIntegration(id);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to connect GitHub.';
-        window.alert(message);
-      }
+      startGithubOAuth();
       return;
     }
 

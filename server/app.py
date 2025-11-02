@@ -13,6 +13,8 @@ from integrations.github_service import (
 	backfill_selected_repositories_commits,
 	backfill_commit_files,
 	upsert_selected_repositories,
+	build_authorization_url as build_github_auth_url,
+	exchange_code_for_tokens as exchange_github_tokens,
 )
 from integrations.whoop_service import (
 	backfill_cycles,
@@ -78,7 +80,8 @@ def root():
 				"fetch_cycles": "/whoop/cycles",
 			},
 			"github": {
-				"connect": "/auth/github/connect",
+				"start_oauth": "/auth/github/start",
+				"callback": "/auth/github/callback",
 				"list_repositories": "/github/repositories",
 				"save_repositories": "/github/repositories",
 				"backfill_commits": "/github/backfill",
@@ -109,7 +112,8 @@ def api_info():
 				"fetch_cycles": "/whoop/cycles",
 			},
 			"github": {
-				"connect": "/auth/github/connect",
+				"start_oauth": "/auth/github/start",
+				"callback": "/auth/github/callback",
 				"list_repositories": "/github/repositories",
 				"save_repositories": "/github/repositories",
 				"backfill_commits": "/github/backfill",
@@ -125,6 +129,33 @@ def api_info():
 		},
 		"status": "operational",
 	}
+
+
+@app.get("/auth/github/start")
+def start_github_oauth():
+	"""Initiate GitHub OAuth flow."""
+	try:
+		auth_url, _ = build_github_auth_url(TEST_USER_ID)
+		return RedirectResponse(url=auth_url)
+	except Exception as err:  # noqa: BLE001
+		raise HTTPException(status_code=500, detail=f"Error starting GitHub OAuth: {err}") from err
+
+
+@app.get("/auth/github/callback")
+def github_callback(code: str, state: Optional[str] = None):
+	"""Handle GitHub OAuth callback."""
+	del state  # State validation skipped for hackathon demo.
+	try:
+		token_data = exchange_github_tokens(code)
+		access_token = token_data.get("access_token")
+		if not access_token:
+			raise ValueError("GitHub OAuth response missing access token")
+
+		connect_github(TEST_USER_ID, access_token)
+		return _frontend_redirect("/onboarding?github=connected")
+	except Exception as err:  # noqa: BLE001
+		error_value = quote_plus(str(err))
+		return _frontend_redirect(f"/onboarding?error={error_value}")
 
 
 @app.get("/auth/whoop/start")
@@ -176,22 +207,6 @@ def whoop_callback(code: str, state: str):
 # 		)
 # 	except Exception as e:
 # 		raise HTTPException(status_code=500, detail=f"Error fetching cycles: {str(e)}")
-
-
-@app.post("/auth/github/connect")
-def connect_github_route(payload: dict = Body(...)):
-	"""Persist GitHub PAT for the demo user after validating with GitHub."""
-	token = (payload or {}).get("personal_access_token")
-	try:
-		profile = connect_github(TEST_USER_ID, token)
-		return {
-			"status": "connected",
-			"profile": profile,
-		}
-	except ValueError as err:
-		raise HTTPException(status_code=400, detail=str(err))
-	except Exception as err:  # noqa: BLE001
-		raise HTTPException(status_code=500, detail=str(err))
 
 
 @app.get("/github/repositories")

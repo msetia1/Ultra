@@ -1,14 +1,30 @@
 """GitHub integration helpers."""
 
+import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
 import requests
+from dotenv import load_dotenv
 
 from integrations.supabase_service import get_supabase
 
+load_dotenv()
+
+GITHUB_CLIENT_ID = os.environ["GITHUB_CLIENT_ID"]
+GITHUB_CLIENT_SECRET = os.environ["GITHUB_CLIENT_SECRET"]
+GITHUB_CALLBACK_URL = os.environ.get(
+	"GITHUB_CALLBACK_URL",
+	"http://localhost:8000/auth/github/callback",
+)
+
+GITHUB_OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
+GITHUB_OAUTH_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 GITHUB_REST_BASE = "https://api.github.com"
+DEFAULT_SCOPES = "repo read:org read:user"
 VIEWER_QUERY = """
 query {
   viewer {
@@ -88,13 +104,56 @@ query ViewerRepositories($first: Int!, $after: String, $affiliations: [Repositor
 """
 
 
-def connect_github(user_id: str, personal_access_token: str) -> Dict[str, str]:
-	"""Validate PAT with GitHub and persist credentials + profile metadata."""
-	if not personal_access_token:
-		raise ValueError("Personal access token is required")
+
+def build_authorization_url(user_id: str) -> Tuple[str, str]:
+	"""Generate GitHub OAuth authorization URL and CSRF state token."""
+	del user_id  # Not required for demo user flow yet.
+	state = secrets.token_urlsafe(32)
+	params = {
+		"client_id": GITHUB_CLIENT_ID,
+		"redirect_uri": GITHUB_CALLBACK_URL,
+		"scope": DEFAULT_SCOPES,
+		"state": state,
+		"allow_signup": "false",
+	}
+	return f"{GITHUB_OAUTH_AUTHORIZE_URL}?{urlencode(params)}", state
+
+
+def exchange_code_for_tokens(code: str) -> Dict[str, Any]:
+	"""Exchange OAuth authorization code for an access token."""
+	payload = {
+		"client_id": GITHUB_CLIENT_ID,
+		"client_secret": GITHUB_CLIENT_SECRET,
+		"code": code,
+		"redirect_uri": GITHUB_CALLBACK_URL,
+	}
+	headers = {"Accept": "application/json"}
+	resp = requests.post(
+		GITHUB_OAUTH_TOKEN_URL,
+		data=payload,
+		headers=headers,
+		timeout=10,
+	)
+	resp.raise_for_status()
+	data = resp.json()
+
+	if "error" in data:
+		error_description = data.get("error_description") or data.get("error")
+		raise ValueError(f"GitHub OAuth error: {error_description}")
+
+	if not data.get("access_token"):
+		raise ValueError("GitHub OAuth response missing access token")
+
+	return data
+
+
+def connect_github(user_id: str, access_token: str) -> Dict[str, str]:
+	"""Validate GitHub access token and persist credentials + profile metadata."""
+	if not access_token:
+		raise ValueError("Access token is required")
 
 	headers = {
-		"Authorization": f"Bearer {personal_access_token}",
+		"Authorization": f"Bearer {access_token}",
 		"Accept": "application/vnd.github+json",
 	}
 	response = requests.post(
@@ -118,7 +177,7 @@ def connect_github(user_id: str, personal_access_token: str) -> Dict[str, str]:
 	supabase.table("github_integrations").upsert({
 		"user_id": user_id,
 		"github_login": viewer["login"],
-		"access_token": personal_access_token,
+		"access_token": access_token,
 		"avatar_url": viewer["avatarUrl"],
 		"profile_url": viewer["url"],
 		"last_synced_at": now_iso,
@@ -477,7 +536,7 @@ def upsert_selected_repositories(user_id: str, repositories: List[Dict[str, Any]
 
 
 def _get_github_credentials(user_id: str) -> Tuple[str, str]:
-	"""Look up stored GitHub PAT and login for the given user."""
+	"""Look up stored GitHub access token and login for the given user."""
 	supabase = get_supabase()
 	result = supabase.table("github_integrations").select("access_token, github_login").eq("user_id", user_id).execute()
 	if not result.data:
