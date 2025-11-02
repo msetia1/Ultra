@@ -1,11 +1,23 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import UniqueLoading from '@/components/ui/morph-loading';
 import OnboardingLogo from './OnboardingLogo';
 
 export default function LoadingScreen() {
+  const navigate = useNavigate();
+
   useEffect(() => {
     console.log('[LoadingScreen] Component mounted');
-  }, []);
+
+    // Navigate to calendar page after 5 seconds
+    const timer = setTimeout(() => {
+      console.log('[LoadingScreen] Navigating to calendar...');
+      navigate('/calendar');
+    }, 5000);
+
+    // Cleanup timer on unmount
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
