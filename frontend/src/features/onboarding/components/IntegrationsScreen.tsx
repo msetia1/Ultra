@@ -1,15 +1,26 @@
+import { useState, useEffect } from 'react';
 import OnboardingLogo from './OnboardingLogo';
 import IntegrationCard from './IntegrationCard';
 import { integrations } from '../data/integrations';
 import { useOnboardingStore } from '../store/onboardingStore';
 
 export default function IntegrationsScreen() {
+  const [isVisible, setIsVisible] = useState(false);
+
   const {
     connectedIntegrations,
     connectIntegration,
     disconnectIntegration,
     nextStep,
   } = useOnboardingStore();
+
+  useEffect(() => {
+    // Trigger animation after component mounts
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleToggleConnection = (id: string) => {
     if (connectedIntegrations.includes(id)) {
@@ -49,12 +60,14 @@ export default function IntegrationsScreen() {
 
           {/* Integration Cards */}
           <div className="grid grid-cols-2 gap-[24px]">
-            {integrations.map((integration) => (
+            {integrations.map((integration, index) => (
               <IntegrationCard
                 key={integration.id}
                 integration={integration}
                 isConnected={connectedIntegrations.includes(integration.id)}
                 onToggleConnection={handleToggleConnection}
+                index={index}
+                isVisible={isVisible}
               />
             ))}
           </div>
@@ -64,23 +77,13 @@ export default function IntegrationsScreen() {
       {/* Finish button - bottom right */}
       <button
         onClick={handleFinishClick}
-        className="
-          absolute
-          bottom-12
-          right-12
-          bg-transparent
-          border-0
-          outline-none
-          p-0
-          m-0
-          font-['Inter',sans-serif]
-          text-[20px]
-          text-[#aaaaaa]
-          transition-colors
-          duration-200
-          hover:text-white
-          cursor-pointer
-        "
+        style={{
+          position: 'fixed',
+          bottom: '3rem',
+          right: '3rem',
+          zIndex: 50,
+        }}
+        className="bg-transparent border-0 outline-none p-0 m-0 font-['Inter',sans-serif] text-[20px] text-[#aaaaaa] transition-colors duration-200 hover:text-white cursor-pointer"
       >
         Finish
       </button>

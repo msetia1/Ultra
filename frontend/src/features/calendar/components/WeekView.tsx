@@ -6,9 +6,17 @@ interface WeekViewProps {
   weekStart: Date;
   tasks: Task[];
   className?: string;
+  selectedTaskId: string | null;
+  onTaskClick: (taskId: string) => void;
 }
 
-export default function WeekView({ weekStart, tasks, className = '' }: WeekViewProps) {
+export default function WeekView({
+  weekStart,
+  tasks,
+  className = '',
+  selectedTaskId,
+  onTaskClick
+}: WeekViewProps) {
   const weekDates = getWeekDates(weekStart);
 
   // Group tasks by day of week
@@ -29,6 +37,8 @@ export default function WeekView({ weekStart, tasks, className = '' }: WeekViewP
           date={date}
           tasks={getTasksForDay(index)}
           className={index === 6 ? 'border-r-0' : ''}
+          selectedTaskId={selectedTaskId}
+          onTaskClick={onTaskClick}
         />
       ))}
     </div>

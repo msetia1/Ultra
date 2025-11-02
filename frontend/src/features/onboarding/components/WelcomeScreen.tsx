@@ -24,7 +24,7 @@ export default function WelcomeScreen({ lines, isItalic = false, onComplete }: W
     if (completedLines.length === currentLineIndex + 1 && currentLineIndex < lines.length - 1) {
       const timer = setTimeout(() => {
         setCurrentLineIndex(prev => prev + 1);
-      }, 400); // Small delay between lines
+      }, 200); // Small delay between lines
       return () => clearTimeout(timer);
     }
 
@@ -32,7 +32,7 @@ export default function WelcomeScreen({ lines, isItalic = false, onComplete }: W
     if (completedLines.length === lines.length) {
       const timer = setTimeout(() => {
         onComplete?.();
-      }, 1500); // Pause before moving to next screen
+      }, 800); // Pause before moving to next screen
       return () => clearTimeout(timer);
     }
   }, [completedLines, currentLineIndex, lines.length, onComplete]);
@@ -64,9 +64,9 @@ export default function WelcomeScreen({ lines, isItalic = false, onComplete }: W
                 <ResponseStream
                   textStream={line}
                   mode="fade"
-                  speed={75}
-                  fadeDuration={500}
-                  segmentDelay={50}
+                  speed={30}
+                  fadeDuration={300}
+                  segmentDelay={20}
                   onComplete={() => handleLineComplete(index)}
                 />
               )}

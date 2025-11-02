@@ -23,35 +23,45 @@ function generateMockTasks(): Task[] {
   const weekStart = getCurrentWeekStart();
   const tasks: Task[] = [];
 
-  // Generate 2 tasks per day for the week
+  // Task templates with varied times and durations
+  const taskTemplates = [
+    { time: '8:00 AM', duration: 1, title: 'Morning Standup', description: 'Quick team sync to discuss today\'s priorities and blockers' },
+    { time: '10:00 AM', duration: 2, title: 'Deep Work', description: 'Focused coding session on high-priority features without interruptions' },
+    { time: '1:00 PM', duration: 1, title: 'Lunch & Learn', description: 'Informal team discussion about latest technologies and best practices' },
+    { time: '3:00 PM', duration: 2, title: 'Deep Work', description: 'Focused coding session on high-priority features without interruptions' },
+    { time: '5:00 PM', duration: 1, title: 'Code Review', description: 'Review team pull requests and provide constructive feedback' },
+    { time: '7:00 PM', duration: 2, title: 'Evening Session', description: 'Work on personal projects and explore new technologies' },
+  ];
+
+  // Generate varied tasks throughout the week
   for (let day = 0; day < 7; day++) {
     const currentDate = new Date(weekStart);
     currentDate.setDate(weekStart.getDate() + day);
 
-    // Morning task
-    const morningStart = parseTimeString('10:00 AM', currentDate);
-    const morningEnd = parseTimeString('2:00 PM', currentDate);
+    // Add 1-3 tasks per day with varied timing
+    const numTasks = Math.floor(Math.random() * 3) + 1;
+    const usedTemplates = new Set<number>();
 
-    tasks.push({
-      id: `task-${day}-morning`,
-      title: 'Deep Work',
-      description: 'Complete Morph diffs feature to update calendar super fast.',
-      startTime: morningStart,
-      endTime: morningEnd,
-      dayOfWeek: day
-    });
+    for (let i = 0; i < numTasks; i++) {
+      // Pick a random template that hasn't been used today
+      let templateIndex;
+      do {
+        templateIndex = Math.floor(Math.random() * taskTemplates.length);
+      } while (usedTemplates.has(templateIndex));
 
-    // Afternoon task (only for some days)
-    if (day % 2 === 0) {
-      const afternoonStart = parseTimeString('3:00 PM', currentDate);
-      const afternoonEnd = parseTimeString('5:00 PM', currentDate);
+      usedTemplates.add(templateIndex);
+      const template = taskTemplates[templateIndex];
+
+      const startTime = parseTimeString(template.time, currentDate);
+      const endTime = new Date(startTime);
+      endTime.setHours(endTime.getHours() + template.duration);
 
       tasks.push({
-        id: `task-${day}-afternoon`,
-        title: 'Deep Work',
-        description: 'Complete Morph diffs feature to update calendar super fast.',
-        startTime: afternoonStart,
-        endTime: afternoonEnd,
+        id: `task-${day}-${i}`,
+        title: template.title,
+        description: template.description,
+        startTime,
+        endTime,
         dayOfWeek: day
       });
     }

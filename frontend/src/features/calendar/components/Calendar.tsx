@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useCalendarStore } from '../store/calendarStore';
 import { getWeekEnd } from '../utils/dateHelpers';
 import CalendarHeader from './CalendarHeader';
@@ -20,12 +21,22 @@ export default function Calendar({ onToggleChat, className = '' }: CalendarProps
     loadMockData
   } = useCalendarStore();
 
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
   // Load mock data on mount
   useEffect(() => {
     loadMockData();
   }, [loadMockData]);
 
   const weekEnd = getWeekEnd(currentWeekStart);
+
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(selectedTaskId === taskId ? null : taskId);
+  };
+
+  const handleBackdropClick = () => {
+    setSelectedTaskId(null);
+  };
 
   if (error) {
     return (
@@ -36,12 +47,10 @@ export default function Calendar({ onToggleChat, className = '' }: CalendarProps
   }
 
   return (
-    <div className={`flex flex-col h-full bg-black ${className}`}>
+    <div className={`flex flex-col h-full bg-black relative ${className}`}>
       <CalendarHeader
         weekStart={currentWeekStart}
         weekEnd={weekEnd}
-        onPreviousWeek={previousWeek}
-        onNextWeek={nextWeek}
         onToggleChat={onToggleChat}
       />
 
@@ -50,8 +59,22 @@ export default function Calendar({ onToggleChat, className = '' }: CalendarProps
           Loading...
         </div>
       ) : (
-        <WeekView weekStart={currentWeekStart} tasks={tasks} />
+        <WeekView
+          weekStart={currentWeekStart}
+          tasks={tasks}
+          selectedTaskId={selectedTaskId}
+          onTaskClick={handleTaskClick}
+        />
       )}
+
+      {/* Backdrop overlay when a task is selected */}
+      <motion.div
+        onClick={handleBackdropClick}
+        className="absolute inset-0 bg-black pointer-events-none z-40"
+        style={{ pointerEvents: selectedTaskId ? 'auto' : 'none' }}
+        animate={{ opacity: selectedTaskId ? 0.6 : 0 }}
+        transition={{ duration: 0.3 }}
+      />
     </div>
   );
 }

@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        'inter': ['Inter', 'sans-serif'],
+      },
       colors: {
         'calendar-bg': '#000000',
         'calendar-text-cream': '#fcecc9',
