@@ -129,6 +129,101 @@
 			line-height: 1.6;
 		}
 
+		.form-group {
+			margin-bottom: 16px;
+		}
+
+		.label {
+			display: block;
+			font-weight: 600;
+			margin-bottom: 8px;
+			color: #2d3748;
+			font-size: 14px;
+		}
+
+		.input {
+			width: 100%;
+			padding: 12px 14px;
+			border-radius: 8px;
+			border: 1px solid #cbd5e0;
+			font-size: 14px;
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+
+		.input:focus {
+			outline: none;
+			border-color: #667eea;
+			box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+		}
+
+		.repo-controls {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 16px;
+		}
+
+		.toggle {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 14px;
+			color: #2d3748;
+			cursor: pointer;
+		}
+
+		.repo-list {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			margin-bottom: 16px;
+		}
+
+		.repo-item {
+			display: flex;
+			align-items: flex-start;
+			gap: 12px;
+			padding: 12px;
+			border-radius: 10px;
+			border: 1px solid #e2e8f0;
+			background: #fff;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+		}
+
+		.repo-item h4 {
+			font-size: 14px;
+			margin-bottom: 4px;
+			color: #2d3748;
+		}
+
+		.repo-item p {
+			font-size: 13px;
+			color: #4a5568;
+			margin-bottom: 4px;
+		}
+
+		.repo-item small {
+			display: block;
+			color: #718096;
+			font-size: 12px;
+		}
+
+		.helper-text {
+			font-size: 13px;
+			color: #718096;
+			margin-top: 8px;
+		}
+
+		.empty-state {
+			padding: 16px;
+			border-radius: 8px;
+			background: #edf2f7;
+			text-align: center;
+			color: #4a5568;
+			font-size: 14px;
+		}
+
 		.data-container {
 			background: #1a202c;
 			border-radius: 8px;
@@ -166,6 +261,7 @@
 			display: flex;
 			gap: 12px;
 			flex-wrap: wrap;
+			align-items: center;
 		}
 
 		.metric {
@@ -245,26 +341,65 @@
 			</div>
 		</div>
 
-		<!-- GitHub Integration (placeholder) -->
+		<!-- GitHub Integration -->
 		<div class="section">
 			<div class="section-title">
 				GitHub Integration
-				<span class="status-badge status-disconnected">Coming Soon</span>
+				<span id="github-status" class="status-badge status-disconnected">Disconnected</span>
 			</div>
 
 			<div class="card">
 				<h3>Connect Your Code Activity</h3>
 				<p>Track your commit patterns and work sessions to identify your most productive hours.</p>
-			</div>
 
-			<button class="button" disabled style="opacity: 0.5; cursor: not-allowed;">
-				Connect GitHub
-			</button>
+				<div class="form-group">
+					<label for="github-pat" class="label">GitHub personal access token</label>
+					<input id="github-pat" type="password" class="input" placeholder="ghp_xxx..." autocomplete="off" />
+					<p class="helper-text">Use a fine-grained token with <code>repo</code> (or specific repo) access. The token stays on your machine for this demo.</p>
+				</div>
+
+				<div class="button-group">
+					<button id="github-connect-btn" class="button" onclick="connectGitHub()">Connect GitHub</button>
+					<button id="github-load-btn" class="button button-secondary" onclick="loadGitHubRepositories({ includeOrg: document.getElementById('github-include-org').checked })" disabled>Load repositories</button>
+				</div>
+
+				<div id="github-repo-controls" class="repo-controls" style="display: none;">
+					<label class="toggle">
+						<input type="checkbox" id="github-include-org" checked>
+						Include organization repositories
+					</label>
+					<button id="github-refresh-btn" class="button button-secondary" onclick="refreshGitHubRepositories()">Refresh list</button>
+				</div>
+
+				<div id="github-repo-section" style="display: none;">
+					<div id="github-repo-list" class="repo-list"></div>
+					<div class="button-group">
+						<button id="github-load-more" class="button button-secondary" style="display: none;" onclick="loadMoreGitHubRepositories()">Load more</button>
+						<button id="github-save-btn" class="button" onclick="saveSelectedRepositories()">Save selections</button>
+					</div>
+					<p class="helper-text">Selected repositories will sync commits authored by you on their default branch.</p>
+				</div>
+
+				<div id="github-empty-state" class="empty-state" style="display: none;">
+					No repositories found. Adjust filters or refresh once your GitHub token is connected.
+				</div>
+			</div>
 		</div>
 	</div>
 
 	<script>
 		const API_BASE = '';
+		const githubState = {
+			connected: false,
+			login: null,
+			includeOrg: true,
+			repos: [],
+			pagination: {
+				hasNext: false,
+				endCursor: null,
+			},
+		};
+		const githubSelection = new Map();
 
 		// Check URL for status messages
 		window.addEventListener('DOMContentLoaded', () => {
@@ -288,6 +423,23 @@
 				showAlert('Connection error: ' + error, 'error');
 				window.history.replaceState({}, document.title, '/');
 			}
+
+			const includeOrgCheckbox = document.getElementById('github-include-org');
+			if (includeOrgCheckbox) {
+				githubState.includeOrg = includeOrgCheckbox.checked;
+				includeOrgCheckbox.addEventListener('change', () => {
+					githubState.includeOrg = includeOrgCheckbox.checked;
+					if (githubState.connected) {
+						refreshGitHubRepositories();
+					}
+				});
+			}
+
+			// Attempt to detect existing GitHub connection on load
+			loadGitHubRepositories({
+				includeOrg: githubState.includeOrg,
+				suppressErrors: true,
+			});
 		});
 
 		function showAlert(message, type) {
@@ -351,7 +503,370 @@
 				showAlert('Error fetching cycles: ' + error.message, 'error');
 			}
 		}
+
+		function setGitHubStatus(connected, login) {
+			const statusBadge = document.getElementById('github-status');
+			const loadBtn = document.getElementById('github-load-btn');
+			const repoControls = document.getElementById('github-repo-controls');
+			const repoSection = document.getElementById('github-repo-section');
+			const emptyState = document.getElementById('github-empty-state');
+
+			githubState.connected = connected;
+			githubState.login = connected ? login || githubState.login : null;
+
+			if (statusBadge) {
+				if (connected) {
+					statusBadge.className = 'status-badge status-connected';
+					statusBadge.textContent = login ? `Connected as ${login}` : 'Connected';
+				} else {
+					statusBadge.className = 'status-badge status-disconnected';
+					statusBadge.textContent = 'Disconnected';
+				}
+			}
+
+			if (loadBtn) {
+				loadBtn.disabled = !connected;
+			}
+
+			if (!connected) {
+				if (repoControls) repoControls.style.display = 'none';
+				if (repoSection) repoSection.style.display = 'none';
+				if (emptyState) emptyState.style.display = 'none';
+			}
+		}
+
+		async function connectGitHub() {
+			const tokenInput = document.getElementById('github-pat');
+			const connectBtn = document.getElementById('github-connect-btn');
+			if (!tokenInput || !connectBtn) return;
+
+			const token = tokenInput.value.trim();
+			if (!token) {
+				showAlert('Paste your GitHub personal access token first.', 'error');
+				return;
+			}
+
+			try {
+				connectBtn.disabled = true;
+				const originalText = connectBtn.textContent;
+				connectBtn.textContent = 'Connecting...';
+
+				const response = await fetch(`${API_BASE}/auth/github/connect`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ personal_access_token: token }),
+				});
+				const data = await response.json();
+
+				if (!response.ok) {
+					throw new Error(data.detail || 'Failed to connect to GitHub');
+				}
+
+				tokenInput.value = '';
+				setGitHubStatus(true, data.profile?.login);
+				showAlert(`GitHub connected${data.profile?.login ? ` as ${data.profile.login}` : ''}.`, 'success');
+				githubSelection.clear();
+				await refreshGitHubRepositories();
+
+				connectBtn.textContent = originalText;
+			} catch (error) {
+				setGitHubStatus(false);
+				showAlert('Error connecting to GitHub: ' + error.message, 'error');
+			} finally {
+				if (connectBtn) {
+					connectBtn.disabled = false;
+					connectBtn.textContent = 'Connect GitHub';
+				}
+			}
+		}
+
+		async function loadGitHubRepositories({
+			includeOrg = githubState.includeOrg,
+			first = 20,
+			after = null,
+			append = false,
+			suppressErrors = false,
+		} = {}) {
+			const loadBtn = document.getElementById('github-load-btn');
+			const repoControls = document.getElementById('github-repo-controls');
+			const repoSection = document.getElementById('github-repo-section');
+			const listEl = document.getElementById('github-repo-list');
+			const emptyState = document.getElementById('github-empty-state');
+			const loadMoreBtn = document.getElementById('github-load-more');
+			const previousRepos = githubState.repos.slice();
+			const previousPagination = { ...githubState.pagination };
+			let unauthorized = false;
+
+			if (!listEl) return;
+
+			if (!append) {
+				listEl.innerHTML = '';
+				if (emptyState) emptyState.style.display = 'none';
+			}
+
+			try {
+				if (loadBtn) {
+					loadBtn.dataset.originalText = loadBtn.dataset.originalText || loadBtn.textContent;
+					loadBtn.textContent = 'Loading...';
+					loadBtn.disabled = true;
+				}
+
+				const params = new URLSearchParams();
+				params.set('first', String(first));
+				params.set('include_org', includeOrg ? 'true' : 'false');
+				if (after) params.set('after', after);
+
+				const response = await fetch(`${API_BASE}/github/repositories?${params.toString()}`);
+				const data = await response.json();
+
+				if (!response.ok) {
+					unauthorized = [400, 401, 403].includes(response.status);
+					throw new Error(data.detail || 'Unable to fetch repositories');
+				}
+
+				setGitHubStatus(true, data.user_login);
+				githubState.includeOrg = includeOrg;
+
+				const items = Array.isArray(data.items) ? data.items : [];
+				if (append) {
+					githubState.repos = githubState.repos.concat(items);
+				} else {
+					githubState.repos = items;
+				}
+
+				githubState.pagination = {
+					hasNext: data.page_info?.has_next_page ?? false,
+					endCursor: data.page_info?.end_cursor ?? null,
+				};
+
+				renderGitHubRepositories(githubState.repos);
+
+				if (repoControls) repoControls.style.display = 'flex';
+				if (repoSection) repoSection.style.display = githubState.repos.length ? 'block' : 'none';
+				if (emptyState) emptyState.style.display = githubState.repos.length ? 'none' : 'block';
+
+				if (loadMoreBtn) {
+					loadMoreBtn.style.display = githubState.pagination.hasNext ? 'inline-block' : 'none';
+				}
+			} catch (error) {
+				if (!suppressErrors) {
+					showAlert('Error loading repositories: ' + error.message, 'error');
+				}
+				if (unauthorized) {
+					githubState.repos = [];
+					githubState.pagination = { hasNext: false, endCursor: null };
+					if (listEl) listEl.innerHTML = '';
+					setGitHubStatus(false);
+					if (repoControls) repoControls.style.display = 'none';
+					if (repoSection) repoSection.style.display = 'none';
+					if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+					if (emptyState && !suppressErrors) emptyState.style.display = 'block';
+				} else {
+					githubState.repos = previousRepos;
+					githubState.pagination = previousPagination;
+					if (!append) {
+						renderGitHubRepositories(githubState.repos);
+					}
+					if (loadMoreBtn) {
+						loadMoreBtn.style.display = githubState.pagination.hasNext ? 'inline-block' : 'none';
+					}
+					if (githubState.connected) {
+						setGitHubStatus(true, githubState.login);
+					}
+				}
+			} finally {
+				if (loadBtn) {
+					loadBtn.textContent = loadBtn.dataset.originalText || 'Load repositories';
+					loadBtn.disabled = !githubState.connected;
+				}
+			}
+		}
+
+		function renderGitHubRepositories(repos) {
+			const listEl = document.getElementById('github-repo-list');
+			const includeOrgCheckbox = document.getElementById('github-include-org');
+			if (!listEl) return;
+
+			listEl.innerHTML = '';
+
+			repos.forEach((repo, index) => {
+				const item = document.createElement('label');
+				item.className = 'repo-item';
+
+				const checkbox = document.createElement('input');
+				checkbox.type = 'checkbox';
+				checkbox.className = 'repo-checkbox';
+				checkbox.id = `repo-checkbox-${index}`;
+				checkbox.dataset.repo = repo.repo_full_name;
+				if (!githubSelection.has(repo.repo_full_name) && repo.include !== undefined) {
+					githubSelection.set(repo.repo_full_name, Boolean(repo.include));
+				}
+				const isChecked = githubSelection.get(repo.repo_full_name) ?? Boolean(repo.include);
+				checkbox.checked = isChecked;
+				checkbox.addEventListener('change', (event) => {
+					githubSelection.set(repo.repo_full_name, event.target.checked);
+				});
+
+				const content = document.createElement('div');
+				const title = document.createElement('h4');
+				title.textContent = repo.repo_full_name || 'Unknown repository';
+
+				const description = document.createElement('p');
+				if (repo.description) {
+					const trimmed = repo.description.length > 140 ? `${repo.description.slice(0, 140)}…` : repo.description;
+					description.textContent = trimmed;
+				} else {
+					description.textContent = 'No description provided.';
+					description.style.opacity = '0.7';
+				}
+
+				const meta = document.createElement('small');
+				meta.textContent = formatRepoMeta(repo);
+
+				content.appendChild(title);
+				content.appendChild(description);
+				content.appendChild(meta);
+
+				item.appendChild(checkbox);
+				item.appendChild(content);
+				listEl.appendChild(item);
+			});
+
+			const repoControls = document.getElementById('github-repo-controls');
+			if (repoControls) {
+				repoControls.style.display = repos.length ? 'flex' : 'none';
+			}
+
+			const repoSection = document.getElementById('github-repo-section');
+			if (repoSection) {
+				repoSection.style.display = repos.length ? 'block' : 'none';
+			}
+
+			const emptyState = document.getElementById('github-empty-state');
+			if (emptyState) {
+				emptyState.style.display = repos.length ? 'none' : 'block';
+			}
+
+			if (includeOrgCheckbox) {
+				includeOrgCheckbox.checked = githubState.includeOrg;
+			}
+		}
+
+		async function refreshGitHubRepositories() {
+			const includeOrg = document.getElementById('github-include-org')?.checked ?? githubState.includeOrg;
+			await loadGitHubRepositories({
+				includeOrg,
+				first: 20,
+				append: false,
+			});
+		}
+
+		async function loadMoreGitHubRepositories() {
+			if (!githubState.pagination.hasNext || !githubState.pagination.endCursor) return;
+			const includeOrg = document.getElementById('github-include-org')?.checked ?? githubState.includeOrg;
+			await loadGitHubRepositories({
+				includeOrg,
+				first: 20,
+				after: githubState.pagination.endCursor,
+				append: true,
+			});
+		}
+
+		async function saveSelectedRepositories() {
+			if (!githubState.repos.length) {
+				showAlert('Load repositories before saving selections.', 'error');
+				return;
+			}
+
+			const saveBtn = document.getElementById('github-save-btn');
+			if (!saveBtn) return;
+
+			const payload = githubState.repos.map((repo) => ({
+				repo_full_name: repo.repo_full_name,
+				default_branch: repo.default_branch,
+				include: githubSelection.get(repo.repo_full_name) ?? false,
+				raw_payload: repo,
+			}));
+
+			try {
+				saveBtn.disabled = true;
+				const originalText = saveBtn.textContent;
+				saveBtn.textContent = 'Saving...';
+
+				const response = await fetch(`${API_BASE}/github/repositories`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ repositories: payload }),
+				});
+				const data = await response.json();
+
+				if (!response.ok) {
+					throw new Error(data.detail || 'Failed to save repositories');
+				}
+
+				showAlert('Repository selections saved.', 'success');
+				await triggerGitHubBackfill();
+			} catch (error) {
+				showAlert('Error saving repositories: ' + error.message, 'error');
+			} finally {
+				if (saveBtn) {
+					saveBtn.disabled = false;
+					saveBtn.textContent = 'Save selections';
+				}
+			}
+		}
+
+		async function triggerGitHubBackfill() {
+			try {
+				const response = await fetch(`${API_BASE}/github/backfill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({}),
+				});
+				const data = await response.json();
+				if (!response.ok) {
+					throw new Error(data.detail || 'Failed to backfill commits');
+				}
+				const commitResults = data.commits?.results || [];
+				const fileResults = data.files?.results || [];
+				const commitSummary = commitResults
+					.filter((item) => item && !item.error)
+					.map((item) => `${item.repo_full_name}: ${item.upserted ?? 0} commits`);
+				const fileSummary = fileResults
+					.filter((item) => item && !item.error)
+					.map((item) => `${item.commit_sha.slice(0, 7)} (${item.repo_full_name})`);
+				if (commitSummary.length || fileSummary.length) {
+					const parts = [];
+					if (commitSummary.length) parts.push(`Commits ⇒ ${commitSummary.join(', ')}`);
+					if (fileSummary.length) parts.push(`Files ⇒ ${fileSummary.length} commits processed`);
+					showAlert(`GitHub backfill complete — ${parts.join(' | ')}`, 'success');
+				} else {
+					showAlert('Commit backfill complete.', 'success');
+				}
+			} catch (error) {
+				showAlert('Error backfilling commits: ' + error.message, 'error');
+			}
+		}
+
+		function formatRepoMeta(repo) {
+			const tags = [];
+			if (repo.is_private) {
+				tags.push('Private');
+			}
+			if (repo.is_fork) {
+				tags.push('Fork');
+			}
+			if (repo.default_branch) {
+				tags.push(`Default: ${repo.default_branch}`);
+			}
+			if (repo.updated_at) {
+				const updated = new Date(repo.updated_at);
+				if (!Number.isNaN(updated.getTime())) {
+					tags.push(`Updated ${updated.toLocaleString()}`);
+				}
+			}
+			return tags.join(' • ') || 'No metadata available';
+		}
 	</script>
 </body>
 </html>
-

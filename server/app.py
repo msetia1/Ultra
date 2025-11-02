@@ -1,11 +1,18 @@
 import os
-from fastapi import Body, FastAPI, HTTPException
+from typing import Optional
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-from integrations.github_service import connect_github
+from integrations.github_service import (
+	connect_github,
+	list_repositories,
+	backfill_selected_repositories_commits,
+	backfill_commit_files,
+	upsert_selected_repositories,
+)
 from integrations.whoop_service import (
 	backfill_cycles,
 	backfill_recoveries,
@@ -64,6 +71,9 @@ def root():
 			},
 			"github": {
 				"connect": "/auth/github/connect",
+				"list_repositories": "/github/repositories",
+				"save_repositories": "/github/repositories",
+				"backfill_commits": "/github/backfill",
 			},
 			"linear": {
 				"start_oauth": "/auth/linear/start",
@@ -92,6 +102,9 @@ def api_info():
 			},
 			"github": {
 				"connect": "/auth/github/connect",
+				"list_repositories": "/github/repositories",
+				"save_repositories": "/github/repositories",
+				"backfill_commits": "/github/backfill",
 			},
 			"linear": {
 				"start_oauth": "/auth/linear/start",
@@ -166,6 +179,86 @@ def connect_github_route(payload: dict = Body(...)):
 			"status": "connected",
 			"profile": profile,
 		}
+	except ValueError as err:
+		raise HTTPException(status_code=400, detail=str(err))
+	except Exception as err:  # noqa: BLE001
+		raise HTTPException(status_code=500, detail=str(err))
+
+
+@app.get("/github/repositories")
+def get_github_repositories(
+	first: int = Query(20, ge=1, le=100),
+	after: Optional[str] = Query(None),
+	include_org: bool = Query(False),
+	fetch_all: bool = Query(False),
+):
+	"""List repositories accessible to the connected GitHub user."""
+	try:
+		return list_repositories(
+			TEST_USER_ID,
+			first=first,
+			after=after,
+			include_org_memberships=include_org,
+			fetch_all=fetch_all,
+		)
+	except ValueError as err:
+		raise HTTPException(status_code=400, detail=str(err))
+	except Exception as err:  # noqa: BLE001
+		raise HTTPException(status_code=500, detail=str(err))
+
+
+@app.post("/github/repositories")
+def save_github_repositories(payload: dict = Body(...)):
+	"""Persist user-selected repositories for commit syncing."""
+	repositories = (payload or {}).get("repositories")
+	try:
+		result = upsert_selected_repositories(TEST_USER_ID, repositories)
+		return {"status": "ok", **result}
+	except ValueError as err:
+		raise HTTPException(status_code=400, detail=str(err))
+	except Exception as err:  # noqa: BLE001
+		raise HTTPException(status_code=500, detail=str(err))
+
+
+@app.post("/github/backfill")
+def backfill_github_commits(payload: Optional[dict] = Body(None)):
+	"""Backfill recent commits for repositories the user has selected."""
+	body = payload or {}
+	limit_raw = body.get("limit_per_repo")
+	since_raw = body.get("since_days")
+	files_limit_raw = body.get("files_limit")
+	limit_per_repo = None
+	if limit_raw not in (None, "", "null"):
+		try:
+			limit_per_repo = int(limit_raw)
+		except (TypeError, ValueError) as exc:
+			raise HTTPException(status_code=400, detail="limit_per_repo must be an integer or null") from exc
+
+	since_days = None
+	if since_raw not in (None, "", "null"):
+		try:
+			since_days = int(since_raw)
+		except (TypeError, ValueError) as exc:
+			raise HTTPException(status_code=400, detail="since_days must be an integer or null") from exc
+
+	files_limit = None
+	if files_limit_raw not in (None, "", "null"):
+		try:
+			files_limit = int(files_limit_raw)
+		except (TypeError, ValueError) as exc:
+			raise HTTPException(status_code=400, detail="files_limit must be an integer or null") from exc
+
+	try:
+		commit_result = backfill_selected_repositories_commits(
+			TEST_USER_ID,
+			limit_per_repo=limit_per_repo,
+			since_days=since_days,
+		)
+		files_result = backfill_commit_files(
+			TEST_USER_ID,
+			limit_commits=files_limit,
+		)
+		return {"status": "ok", "commits": commit_result, "files": files_result}
 	except ValueError as err:
 		raise HTTPException(status_code=400, detail=str(err))
 	except Exception as err:  # noqa: BLE001
