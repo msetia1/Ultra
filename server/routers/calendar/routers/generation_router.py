@@ -131,7 +131,7 @@ async def generate_week(
                 ):
                     event_count += 1
                     event_type = stream_event["event_type"]
-                    logger.debug(f"[GENERATION_ROUTER] Stream event #{event_count}: {event_type}")
+                    logger.info(f"[GENERATION_ROUTER] Stream event #{event_count}: {event_type}")
 
                     if stream_event["event_type"] == "streaming_started":
                         logger.info(f"[GENERATION_ROUTER] Streaming started: {stream_event.get('message')}")
@@ -152,7 +152,7 @@ async def generate_week(
                                 "end_time": event_data["end_time"],
                             }
 
-                            logger.debug(f"[GENERATION_ROUTER] Inserting event to DB: {insert_data['title']}")
+                            logger.info(f"[GENERATION_ROUTER] Inserting event to DB: {insert_data['title']}")
                             result = db_client.table("calendar_events").insert(insert_data).execute()
 
                             if result.data and len(result.data) > 0:
@@ -170,13 +170,14 @@ async def generate_week(
 
                     # Stream the event to client
                     json_data = json.dumps(stream_event)
-                    logger.debug(f"[GENERATION_ROUTER] Yielding SSE: {json_data[:100]}...")
+                    logger.info(f"[GENERATION_ROUTER] 📤 Yielding SSE event: {event_type}")
                     yield f"data: {json_data}\n\n"
 
                     if stream_event["event_type"] == "generation_complete":
                         logger.info(
                             f"✅ Week generation completed: {stream_event.get('total_events', 0)} events"
                         )
+                        logger.info(f"[GENERATION_ROUTER] 🏁 Breaking from event loop after generation_complete")
                         break
 
                     if stream_event["event_type"] == "generation_error":

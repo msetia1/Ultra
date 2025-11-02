@@ -45,31 +45,62 @@ export async function* streamWeekGeneration(
   try {
     while (true) {
       const { done, value } = await reader.read();
+
       if (done) {
-        console.log('[generationApi] Stream complete, total events:', eventCount);
+        console.log('[generationApi] ✅ Stream done, total events:', eventCount);
+        console.log('[generationApi] Remaining buffer:', buffer.length, 'bytes');
+        if (buffer.trim()) {
+          console.warn('[generationApi] ⚠️ Unparsed buffer remaining:', buffer.substring(0, 200));
+        }
         break;
       }
 
-      buffer += decoder.decode(value, { stream: true });
+      const chunk = decoder.decode(value, { stream: true });
+      console.log('[generationApi] 📥 Received chunk:', chunk.length, 'bytes');
+
+      buffer += chunk;
+      console.log('[generationApi] Current buffer size:', buffer.length, 'bytes');
 
       // Split by SSE event separator
       const events = buffer.split('\n\n');
       buffer = events.pop() || '';
 
+      console.log('[generationApi] Processing', events.length, 'potential events from chunk');
+
       for (const event of events) {
-        if (!event.trim() || !event.startsWith('data: ')) continue;
+        if (!event.trim()) {
+          console.log('[generationApi] Skipping empty event');
+          continue;
+        }
+
+        if (!event.startsWith('data: ')) {
+          console.log('[generationApi] Skipping non-data event:', event.substring(0, 50));
+          continue;
+        }
 
         try {
-          const data: GenerationSSEEvent = JSON.parse(event.slice(6));
+          const jsonStr = event.slice(6);
+          console.log('[generationApi] Parsing JSON:', jsonStr.substring(0, 100) + '...');
+
+          const data: GenerationSSEEvent = JSON.parse(jsonStr);
           eventCount++;
-          console.log('[generationApi] Event received:', data.event_type);
+          console.log('[generationApi] ✓ Event', eventCount, ':', data.event_type);
+
+          if (data.event_type === 'event_ready') {
+            console.log('[generationApi]   → Event #' + data.event_number + ':', data.event_data.title);
+          } else if (data.event_type === 'generation_complete') {
+            console.log('[generationApi]   → 🎉 Complete! Total:', data.total_events);
+          }
+
           yield data;
         } catch (e) {
-          console.error('[generationApi] Failed to parse SSE event:', e);
+          console.error('[generationApi] ❌ Parse error:', e);
+          console.error('[generationApi] Failed event string:', event.substring(0, 200));
         }
       }
     }
   } finally {
+    console.log('[generationApi] Releasing reader lock');
     reader.releaseLock();
   }
 }

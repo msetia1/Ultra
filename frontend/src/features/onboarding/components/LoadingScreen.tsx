@@ -14,6 +14,8 @@ export default function LoadingScreen() {
   useEffect(() => {
     console.log('[LoadingScreen] Component mounted, starting week generation...');
 
+    let cancelled = false;
+
     // Start generation immediately with onboarding data
     const weekId = getCurrentWeekId();
     const request = buildGenerationRequest({ goals, values, projects });
@@ -21,8 +23,29 @@ export default function LoadingScreen() {
     console.log('[LoadingScreen] Generating week:', weekId);
     console.log('[LoadingScreen] User goals:', request.user_goals);
 
-    generateWeek(weekId, request);
-  }, []); // Run once on mount
+    // Wrap in async IIFE to properly await generateWeek
+    (async () => {
+      try {
+        console.log('[LoadingScreen] 🚀 Calling generateWeek...');
+        await generateWeek(weekId, request);
+
+        if (!cancelled) {
+          console.log('[LoadingScreen] ✅ generateWeek completed successfully');
+        }
+      } catch (error) {
+        console.error('[LoadingScreen] ❌ generateWeek failed:', error);
+        if (!cancelled) {
+          // Still navigate on error after short delay
+          setTimeout(() => navigate('/calendar'), 2000);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      console.log('[LoadingScreen] Component unmounting, setting cancelled flag');
+    };
+  }, [generateWeek, goals, values, projects, navigate]); // Add dependencies
 
   useEffect(() => {
     // Navigate when generation completes
@@ -45,6 +68,21 @@ export default function LoadingScreen() {
       return () => clearTimeout(timer);
     }
   }, [error, navigate]);
+
+  useEffect(() => {
+    // Safety timeout: navigate after 60 seconds regardless
+    console.log('[LoadingScreen] Setting 60s safety timeout...');
+
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[LoadingScreen] ⏰ Safety timeout reached (60s), navigating to calendar...');
+      navigate('/calendar');
+    }, 60000);
+
+    return () => {
+      console.log('[LoadingScreen] Clearing safety timeout');
+      clearTimeout(safetyTimeout);
+    };
+  }, [navigate]);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">

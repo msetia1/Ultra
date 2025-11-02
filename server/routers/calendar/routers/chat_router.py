@@ -4,7 +4,7 @@ import json
 import logging
 from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException, Depends
-from sse_starlette.sse import EventSourceResponse
+from fastapi.responses import StreamingResponse
 from agents import Runner, RunContextWrapper, RunConfig
 from integrations.supabase_service import get_supabase
 from ..models import CalendarChatRequest, CalendarContext
@@ -72,7 +72,7 @@ async def chat_with_calendar(
     week_id: str,
     request: CalendarChatRequest,
     user_id: str = "00000000-0000-0000-0000-000000000000",  # TODO: Get from auth with Depends(get_current_user)
-) -> EventSourceResponse:
+) -> StreamingResponse:
     """Stream calendar chat responses with real-time patch emission.
 
     SSE Event Types:
@@ -201,7 +201,7 @@ async def chat_with_calendar(
                     "message": str(e),
                 })
 
-        return EventSourceResponse(
+        return StreamingResponse(
             event_generator(),
             media_type="text/event-stream",
             headers={
@@ -217,9 +217,5 @@ async def chat_with_calendar(
 
 
 def format_sse(payload: dict) -> str:
-    """Format payload as SSE event.
-
-    Note: EventSourceResponse from sse-starlette automatically adds the 'data: ' prefix.
-    We only need to provide the JSON content and double newline separator.
-    """
-    return f"{json.dumps(payload)}\n\n"
+    """Format payload as SSE event (trainwithai pattern)."""
+    return f"data: {json.dumps(payload)}\n\n"
