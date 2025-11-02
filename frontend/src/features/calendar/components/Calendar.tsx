@@ -7,17 +7,16 @@ import WeekView from './WeekView';
 
 interface CalendarProps {
   onToggleChat?: () => void;
+  isChatOpen?: boolean;
   className?: string;
 }
 
-export default function Calendar({ onToggleChat, className = '' }: CalendarProps) {
+export default function Calendar({ onToggleChat, isChatOpen, className = '' }: CalendarProps) {
   const {
     currentWeekStart,
     tasks,
     isLoading,
     error,
-    nextWeek,
-    previousWeek,
     loadMockData
   } = useCalendarStore();
 
@@ -64,6 +63,7 @@ export default function Calendar({ onToggleChat, className = '' }: CalendarProps
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           onTaskClick={handleTaskClick}
+          isChatOpen={isChatOpen}
         />
       )}
 

@@ -32,23 +32,43 @@ from integrations.linear_service import (
 	create_issue,
 )
 
+from routers.calendar.routers import chat_router, accept_router
+
 load_dotenv()
 
 app = FastAPI(title="AI Scheduling Agent API")
 
+# Include calendar routers
+app.include_router(chat_router)
+app.include_router(accept_router)
+
 # CORS middleware for frontend
+# Determine allowed origins based on environment
+allowed_origins = [
+	"http://localhost:3000",
+	"http://localhost:8000",
+	"http://127.0.0.1:8000",
+]
+
+# Add production domain if in production
+if os.getenv("ENVIRONMENT") == "production":
+	allowed_origins.extend([
+		"https://ultra-calendar.com",
+		"https://www.ultra-calendar.com",
+	])
+
 app.add_middleware(
 	CORSMiddleware,
-	allow_origins=["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"],
+	allow_origins=allowed_origins,
 	allow_credentials=True,
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
 
-# Serve static files from client directory
-client_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client")
-if os.path.exists(client_path):
-	app.mount("/static", StaticFiles(directory=client_path), name="static")
+# Serve static files from static directory (built frontend)
+static_path = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_path):
+	app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="assets")
 
 # Development user ID - replace with actual user from auth flow
 TEST_USER_ID = os.environ.get("TEST_USER_ID", "00000000-0000-0000-0000-000000000000")
@@ -57,9 +77,9 @@ TEST_USER_ID = os.environ.get("TEST_USER_ID", "00000000-0000-0000-0000-000000000
 @app.get("/")
 def root():
 	"""Serve the frontend application."""
-	client_html = os.path.join(client_path, "index.html")
-	if os.path.exists(client_html):
-		return FileResponse(client_html)
+	static_html = os.path.join(static_path, "index.html")
+	if os.path.exists(static_html):
+		return FileResponse(static_html)
 	return {
 		"message": "AI Scheduling Agent API",
 		"version": "0.1.0",

@@ -1,5 +1,5 @@
 import { formatDateRange } from '../utils/dateHelpers';
-import { Pencil } from 'lucide-react';
+import ChatIcon from './ChatIcon';
 
 interface CalendarHeaderProps {
   weekStart: Date;
@@ -17,7 +17,7 @@ export default function CalendarHeader({
   return (
     <div
       className={`
-        bg-black border-b border-[#606060]
+        bg-black border-b border-[#252525]
         h-[81px] flex items-center justify-between pl-[24px] pr-[26px]
         ${className}
       `}
@@ -39,10 +39,10 @@ export default function CalendarHeader({
       {onToggleChat && (
         <button
           onClick={onToggleChat}
-          className="text-[#888888] hover:text-[#fcecc9] transition-colors"
+          className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
           aria-label="Toggle chat"
         >
-          <Pencil size={24} />
+          <ChatIcon />
         </button>
       )}
     </div>

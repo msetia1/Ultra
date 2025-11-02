@@ -1,4 +1,4 @@
-const imgGroup = "http://localhost:3845/assets/14ec506f491e87722d5d1901c8c36aa9419f5fe5.svg";
+const imgGroup = "/icons/ultra-logo.svg";
 
 export default function OnboardingLogo() {
   return (

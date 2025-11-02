@@ -8,13 +8,15 @@ interface AnimatedTaskCardProps {
   isSelected: boolean;
   onClick: () => void;
   style?: React.CSSProperties;
+  isChatOpen?: boolean;
 }
 
 export default function AnimatedTaskCard({
   task,
   isSelected,
   onClick,
-  style
+  style,
+  isChatOpen
 }: AnimatedTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -32,7 +34,7 @@ export default function AnimatedTaskCard({
         "px-[14px] pt-[6px] pb-[14px] flex flex-col",
         isSelected
           ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-md"
-          : "absolute w-[120px]"
+          : `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'}`
       )}
       style={!isSelected ? {
         ...style,

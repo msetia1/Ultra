@@ -1,0 +1,31 @@
+{
+  "ImageRepository": {
+    "ImageIdentifier": "477391720355.dkr.ecr.us-east-1.amazonaws.com/ultra-calendar:latest",
+    "ImageRepositoryType": "ECR",
+    "ImageConfiguration": {
+      "Port": "8000",
+      "RuntimeEnvironmentVariables": {
+        "ENVIRONMENT": "production",
+        "PORT": "8000",
+        "GITHUB_CLIENT_ID": "Ov23lilyL8e2qceLxCjm",
+        "GITHUB_CLIENT_SECRET": "b1a373fa0f4441a8e3e26ba82108dcb716469a00",
+        "WHOOP_CLIENT_ID": "a65c5a60-e1aa-4a68-a5f8-cb4580ad53df",
+        "WHOOP_CLIENT_SECRET": "573b7790003314d0a9699e1d52f2345e179a147d7bf5b500dcc2dce4ddf88350",
+        "WHOOP_API_HOSTNAME": "https://api.prod.whoop.com",
+        "WHOOP_CALLBACK_URL": "https://ultra-calendar.com/auth/whoop/callback",
+        "TEST_USER_ID": "bbd0d9b7-5319-4633-9d5d-f59ec72e5115",
+        "SUPABASE_URL": "https://xdnwclwilrczniwbbeuu.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkbndjbHdpbHJjem5pd2JiZXV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjAzNjMwMSwiZXhwIjoyMDc3NjEyMzAxfQ.3MsKbv8uOYwmBlBvI4FuaYCsvbvS1yZ_lsuEnIxFaDs",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkbndjbHdpbHJjem5pd2JiZXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMzYzMDEsImV4cCI6MjA3NzYxMjMwMX0.kkIeAf5fLVYmL0UKHqYw2fn00JWo43KRLwaNYLNR2xs",
+        "FRONTEND_BASE_URL": "https://ultra-calendar.com",
+        "LINEAR_CLIENT_ID": "cb1cd31ceebc308dce052c792cd0eb6e",
+        "LINEAR_CLIENT_SECRET": "9541a097606119e27425ea63fd4805df",
+        "LINEAR_CALLBACK_URL": "https://ultra-calendar.com/auth/linear/callback"
+      }
+    }
+  },
+  "AutoDeploymentsEnabled": false,
+  "AuthenticationConfiguration": {
+    "AccessRoleArn": "arn:aws:iam::477391720355:role/service-role/AppRunnerECRAccessRole"
+  }
+}

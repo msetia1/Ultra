@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Task, WeekData } from '../types/calendar.types';
-import { getCurrentWeekStart, getWeekEnd, getWeekStart } from '../utils/dateHelpers';
+import type { Task } from '../types/calendar.types';
+import { getCurrentWeekStart, getWeekStart } from '../utils/dateHelpers';
 import { parseTimeString } from '../utils/timeCalculations';
 
 interface CalendarStore {

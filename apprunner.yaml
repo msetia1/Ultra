@@ -1,0 +1,31 @@
+version: 1.0
+runtime: python311
+
+build:
+  commands:
+    build:
+      - echo "Building with Docker..."
+
+run:
+  runtime-version: "3.11"
+  command: "uvicorn app:app --host 0.0.0.0 --port 8000"
+  network:
+    port: 8000
+    env: APP_PORT
+  env:
+    - name: PORT
+      value: "8000"
+
+# Environment variables to configure in App Runner console:
+# SUPABASE_URL - Your Supabase project URL
+# SUPABASE_SERVICE_ROLE_KEY - Supabase service role key
+# WHOOP_CLIENT_ID - WHOOP OAuth client ID
+# WHOOP_CLIENT_SECRET - WHOOP OAuth client secret
+# WHOOP_API_HOSTNAME - https://api.prod.whoop.com
+# WHOOP_CALLBACK_URL - https://ultra-calendar.com/auth/whoop/callback
+# LINEAR_CLIENT_ID - Linear OAuth client ID
+# LINEAR_CLIENT_SECRET - Linear OAuth client secret
+# LINEAR_CALLBACK_URL - https://ultra-calendar.com/auth/linear/callback
+# GITHUB_CLIENT_ID - GitHub OAuth client ID (if needed)
+# GITHUB_CLIENT_SECRET - GitHub OAuth client secret (if needed)
+# TEST_USER_ID - Demo/test user UUID
