@@ -47,17 +47,6 @@ export default function StreamingMessage({ content, isStreaming }: StreamingMess
             />
           )}
         </div>
-        {isStreaming && (
-          <div
-            style={{
-              fontSize: '11px',
-              color: '#888888',
-              marginTop: '6px',
-            }}
-          >
-            AI is typing...
-          </div>
-        )}
       </div>
       <style>
         {`

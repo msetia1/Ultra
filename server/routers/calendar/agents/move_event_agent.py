@@ -63,7 +63,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="MoveEventAgent",
         instructions=instructions,
-        model="anthropic/claude-3.5-sonnet",
+        model="google/gemini-2.5-flash",
         tools=[emit_move_event_patch],
     )
 

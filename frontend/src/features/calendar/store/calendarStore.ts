@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import type { Task } from '../types/calendar.types';
-import { getCurrentWeekStart, getWeekStart } from '../utils/dateHelpers';
+import { getCurrentWeekStart, getWeekStart, getWeekIdFromDate } from '../utils/dateHelpers';
 import { parseTimeString } from '../utils/timeCalculations';
+import { fetchWeekEvents } from '../api/calendarApi';
+import { transformCalendarEventToTask } from '../utils/eventTransform';
 
 interface CalendarStore {
   currentWeekStart: Date;
@@ -13,6 +15,8 @@ interface CalendarStore {
   setCurrentWeekStart: (date: Date) => void;
   nextWeek: () => void;
   previousWeek: () => void;
+  setTasks: (tasks: Task[]) => void;
+  loadWeekEvents: (weekId: string) => Promise<void>;
   loadMockData: () => void;
   addTask: (task: Task) => void;
   removeTask: (taskId: string) => void;
@@ -82,20 +86,59 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   },
 
   nextWeek: () => {
-    const { currentWeekStart } = get();
+    const { currentWeekStart, loadWeekEvents } = get();
     const nextWeek = new Date(currentWeekStart);
     nextWeek.setDate(currentWeekStart.getDate() + 7);
     set({ currentWeekStart: nextWeek });
+
+    // Load events for new week
+    const weekId = getWeekIdFromDate(nextWeek);
+    loadWeekEvents(weekId);
   },
 
   previousWeek: () => {
-    const { currentWeekStart } = get();
+    const { currentWeekStart, loadWeekEvents } = get();
     const prevWeek = new Date(currentWeekStart);
     prevWeek.setDate(currentWeekStart.getDate() - 7);
     set({ currentWeekStart: prevWeek });
+
+    // Load events for new week
+    const weekId = getWeekIdFromDate(prevWeek);
+    loadWeekEvents(weekId);
   },
 
+  setTasks: (tasks: Task[]) => {
+    set({ tasks });
+  },
+
+  loadWeekEvents: async (weekId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log('[calendarStore] Loading events for week:', weekId);
+      const events = await fetchWeekEvents(weekId);
+
+      // Transform events to tasks
+      const { currentWeekStart } = get();
+      const tasks = events.map(event =>
+        transformCalendarEventToTask(event, currentWeekStart)
+      );
+
+      console.log('[calendarStore] Loaded', tasks.length, 'tasks');
+      set({ tasks, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load events';
+      console.error('[calendarStore] Error loading events:', errorMessage);
+      set({
+        error: errorMessage,
+        isLoading: false,
+        tasks: [], // Clear tasks on error
+      });
+    }
+  },
+
+  // Mock data loader - kept for testing, not used in production
   loadMockData: () => {
+    console.warn('[calendarStore] Loading mock data (testing only)');
     set({ isLoading: true, error: null });
     try {
       const mockTasks = generateMockTasks();

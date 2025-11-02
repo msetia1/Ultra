@@ -5,11 +5,15 @@ import OnboardingLogo from './OnboardingLogo';
 import { useOnboardingStore } from '../store/onboardingStore';
 import { useWeekGeneration } from '@/features/calendar/hooks/useWeekGeneration';
 import { getCurrentWeekId, buildGenerationRequest } from '@/features/calendar/utils/generationHelpers';
+import { useCalendarStore } from '@/features/calendar/store/calendarStore';
+import { getCurrentWeekStart } from '@/features/calendar/utils/dateHelpers';
+import { transformGeneratedEventToTask } from '@/features/calendar/utils/eventTransform';
 
 export default function LoadingScreen() {
   const navigate = useNavigate();
   const { goals, values, projects } = useOnboardingStore();
-  const { generateWeek, isComplete, error } = useWeekGeneration();
+  const { generateWeek, isComplete, error, events } = useWeekGeneration();
+  const { setTasks } = useCalendarStore();
 
   useEffect(() => {
     console.log('[LoadingScreen] Component mounted, starting week generation...');
@@ -48,12 +52,31 @@ export default function LoadingScreen() {
   }, [generateWeek, goals, values, projects, navigate]); // Add dependencies
 
   useEffect(() => {
-    // Navigate when generation completes
-    if (isComplete) {
-      console.log('[LoadingScreen] Generation complete! Navigating to calendar...');
+    // Pre-populate calendar store and navigate when generation completes
+    if (isComplete && events.length > 0) {
+      console.log('[LoadingScreen] Generation complete! Pre-populating calendar store...');
+      console.log('[LoadingScreen] Generated events:', events.length);
+
+      // Transform generated events to tasks
+      const weekStart = getCurrentWeekStart();
+      const tasks = events.map(event =>
+        transformGeneratedEventToTask(event, weekStart)
+      );
+
+      console.log('[LoadingScreen] Transformed to', tasks.length, 'tasks');
+
+      // Pre-populate calendar store
+      setTasks(tasks);
+      console.log('[LoadingScreen] ✅ Calendar store populated, navigating...');
+
+      // Now navigate - calendar will have data ready
+      navigate('/calendar');
+    } else if (isComplete && events.length === 0) {
+      // Generation complete but no events - still navigate
+      console.warn('[LoadingScreen] Generation complete but no events generated');
       navigate('/calendar');
     }
-  }, [isComplete, navigate]);
+  }, [isComplete, events, navigate, setTasks]);
 
   useEffect(() => {
     // Handle errors - still navigate to calendar after short delay

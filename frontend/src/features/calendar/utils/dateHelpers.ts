@@ -66,3 +66,29 @@ export function getWeekDates(startDate: Date): Date[] {
 export function getCurrentWeekStart(): Date {
   return getWeekStart(new Date());
 }
+
+/**
+ * Get week ID in ISO format (YYYY-Www) for any date
+ * Example: "2025-W09"
+ *
+ * This uses proper ISO 8601 week date calculation:
+ * - Week starts on Monday
+ * - Week 1 is the first week with Thursday in it
+ */
+export function getWeekIdFromDate(date: Date): string {
+  const d = new Date(date);
+
+  // Set to nearest Thursday (current date + 4 - current day number)
+  // Make Sunday's day number 7
+  const dayNum = d.getDay() || 7;
+  d.setDate(d.getDate() + 4 - dayNum);
+
+  // Get year of Thursday
+  const year = d.getFullYear();
+
+  // Calculate week number
+  const yearStart = new Date(year, 0, 1);
+  const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return `${year}-W${weekNum.toString().padStart(2, '0')}`;
+}

@@ -55,7 +55,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="AddEventAgent",
         instructions=instructions,
-        model="anthropic/claude-3.5-sonnet",
+        model="google/gemini-2.5-flash",
         tools=[emit_add_event_patch],  # Python function, not JSON schema
     )
 

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { useCalendarChat } from '@/features/calendar/hooks/useCalendarChat';
 import PatchPreview from '@/features/calendar/components/PatchPreview';
 import ChatInput from './ChatInput';
@@ -13,7 +13,8 @@ export default function ChatPanel() {
     messages,
     streamingMessage,
     isStreaming: isStreamingStore,
-    addUserMessage
+    addUserMessage,
+    clearMessages
   } = useChatStore();
   const [input, setInput] = useState('');
   const [isAccepting, setIsAccepting] = useState(false);
@@ -38,18 +39,29 @@ export default function ChatPanel() {
     clearPatches,
   } = useCalendarChat(weekId);
 
+  // Sync backend AI response to Zustand store when streaming completes
+  useEffect(() => {
+    if (!isStreaming && streamedMessage) {
+      useChatStore.getState().addMessage(streamedMessage, 'ai');
+      // Clear the streamed message to avoid duplicate display
+      clearPatches();
+    }
+  }, [isStreaming, streamedMessage, clearPatches]);
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isStreaming || isAccepting) return;
 
+    const messageText = input.trim();
+
     // Add user message to store
-    addUserMessage(input.trim());
+    addUserMessage(messageText);
 
     // Clear input
     setInput('');
 
-    // TODO: Backend integration - will connect when backend is ready
-    // await sendMessage(input.trim());
+    // Send message to backend via SSE
+    await sendMessage(messageText);
   };
 
   const handleInputChange = (newValue: string) => {
@@ -116,7 +128,18 @@ export default function ChatPanel() {
           backgroundColor: '#000000',
         }}
       >
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={clearMessages}
+            className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
+            style={{
+              paddingTop: '16px',
+              paddingLeft: '16px',
+            }}
+            aria-label="New chat"
+          >
+            <Plus size={24} />
+          </button>
           <button
             onClick={closeChat}
             className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"

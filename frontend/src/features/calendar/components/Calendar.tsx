@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCalendarStore } from '../store/calendarStore';
-import { getWeekEnd } from '../utils/dateHelpers';
+import { getWeekEnd, getWeekIdFromDate } from '../utils/dateHelpers';
 import CalendarHeader from './CalendarHeader';
 import WeekView from './WeekView';
 
@@ -24,15 +24,19 @@ export default function Calendar({
     tasks,
     isLoading,
     error,
-    loadMockData
+    loadWeekEvents
   } = useCalendarStore();
 
   const [isVisible, setIsVisible] = useState(false);
 
-  // Load mock data on mount
+  // Load events from API if tasks are empty (e.g., page refresh, direct navigation)
   useEffect(() => {
-    loadMockData();
-  }, [loadMockData]);
+    if (tasks.length === 0 && !isLoading) {
+      console.log('[Calendar] No tasks found, loading events from API...');
+      const weekId = getWeekIdFromDate(currentWeekStart);
+      loadWeekEvents(weekId);
+    }
+  }, [currentWeekStart, tasks.length, isLoading, loadWeekEvents]);
 
   // Trigger animation when loading completes
   useEffect(() => {

@@ -37,7 +37,7 @@ from integrations.linear_service import (
 	create_issue,
 )
 
-from routers.calendar.routers import chat_router, accept_router, generation_router
+from routers.calendar.routers import chat_router, accept_router, generation_router, events_router
 
 load_dotenv()
 
@@ -66,6 +66,7 @@ def _frontend_redirect(path: str) -> RedirectResponse:
 app.include_router(chat_router)
 app.include_router(accept_router)
 app.include_router(generation_router)
+app.include_router(events_router)
 
 # CORS middleware for frontend
 # Determine allowed origins based on environment

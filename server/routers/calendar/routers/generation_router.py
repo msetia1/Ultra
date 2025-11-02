@@ -92,6 +92,24 @@ async def generate_week(
         # Get database client
         db_client = get_supabase()
 
+        # DEMO MODE: Clear existing events for this week before generation
+        # This ensures a clean slate for each demo/hackathon test
+        try:
+            logger.info(f"[GENERATION_ROUTER] 🧹 Clearing existing events for week {week_id}...")
+            delete_response = (
+                db_client.table("calendar_events")
+                .delete()
+                .eq("user_id", user_id)
+                .gte("scheduled_date", week_start.date().isoformat())
+                .lte("scheduled_date", week_end.date().isoformat())
+                .execute()
+            )
+            deleted_count = len(delete_response.data) if delete_response.data else 0
+            logger.info(f"[GENERATION_ROUTER] ✅ Deleted {deleted_count} existing events")
+        except Exception as e:
+            logger.warning(f"[GENERATION_ROUTER] Failed to clear existing events: {e}")
+            # Continue anyway - not critical
+
         # Load existing events for the week if needed
         existing_events = request.existing_events
         if existing_events is None:

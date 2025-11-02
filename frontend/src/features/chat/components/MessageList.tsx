@@ -34,22 +34,6 @@ export default function MessageList({
         paddingBottom: '24px',
       }}
     >
-      {/* Empty state */}
-      {messages.length === 0 && !streamingMessage && !error && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: '#888888',
-            fontSize: '15px',
-          }}
-        >
-          Start a conversation...
-        </div>
-      )}
-
       {/* Error message */}
       {error && (
         <div

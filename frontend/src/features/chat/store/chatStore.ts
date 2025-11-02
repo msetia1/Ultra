@@ -23,23 +23,10 @@ interface ChatStore {
 export const useChatStore = create<ChatStore>()(
   persist(
     (set) => {
-      console.log('[chatStore] Store initializing with isOpen: true');
+      console.log('[chatStore] Store initializing');
       return {
-        isOpen: true, // Temporarily true for debugging
-        messages: [
-          {
-            id: 'sample-user-1',
-            content: 'Can you help me schedule a meeting for tomorrow?',
-            timestamp: new Date(),
-            sender: 'user'
-          },
-          {
-            id: 'sample-ai-1',
-            content: "Of course! I'd be happy to help you schedule a meeting for tomorrow. What time works best for you, and how long should the meeting be?",
-            timestamp: new Date(),
-            sender: 'ai'
-          }
-        ],
+        isOpen: false,
+        messages: [],
         streamingMessage: '',
         isStreaming: false,
 

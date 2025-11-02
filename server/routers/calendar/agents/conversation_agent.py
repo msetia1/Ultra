@@ -73,7 +73,7 @@ IMPORTANT:
     return Agent(
         name="CalendarConversationAgent",
         instructions=instructions,
-        model="anthropic/claude-3.5-sonnet",
+        model="google/gemini-2.5-flash",
         tools=[
             run_add_event_agent,
             run_remove_event_agent,
