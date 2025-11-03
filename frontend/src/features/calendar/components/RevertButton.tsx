@@ -8,21 +8,15 @@ export default function RevertButton({ onRevert }: RevertButtonProps) {
   return (
     <button
       onClick={onRevert}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50
-        flex items-center gap-2
-        px-4 py-3
-        bg-[#fcecc9] text-black
-        rounded-lg
-        font-inter font-medium text-sm
-        hover:bg-[#fcecc9]/90
+      className="p-2
+        text-[#888888] hover:text-[#fcecc9]
+        rounded-full
+        hover:bg-white/5
         transition-all duration-200
-        shadow-lg hover:shadow-xl"
-      style={{
-        boxShadow: '0 4px 20px rgba(252, 236, 201, 0.4)'
-      }}
+        cursor-pointer"
+      aria-label="Revert changes"
     >
-      <Undo2 size={16} />
-      Revert Changes
+      <Undo2 size={18} />
     </button>
   );
 }

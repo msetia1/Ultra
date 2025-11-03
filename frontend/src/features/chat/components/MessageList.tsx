@@ -8,6 +8,8 @@ interface MessageListProps {
   streamingMessage?: string;
   isStreaming?: boolean;
   error?: string | null;
+  showRevertButton?: boolean;
+  onRevert?: () => void;
 }
 
 export default function MessageList({
@@ -15,8 +17,14 @@ export default function MessageList({
   streamingMessage = '',
   isStreaming = false,
   error = null,
+  showRevertButton = false,
+  onRevert,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  console.log('[MessageList] Render - showRevertButton:', showRevertButton);
+  console.log('[MessageList] messages count:', messages.length);
+  console.log('[MessageList] messages:', messages.map(m => ({ sender: m.sender, id: m.id })));
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
@@ -51,13 +59,27 @@ export default function MessageList({
       )}
 
       {/* Message list */}
-      {messages.map((message, index) => (
-        <MessageBubble
-          key={message.id}
-          message={message}
-          isLatest={index === messages.length - 1}
-        />
-      ))}
+      {messages.map((message, index) => {
+        // Find the index of the last user message
+        const lastUserMessageIndex = messages.map((m, i) => m.sender === 'user' ? i : -1)
+          .filter(i => i !== -1)
+          .pop() ?? -1;
+
+        const isLastUserMessage = message.sender === 'user' && index === lastUserMessageIndex;
+        const shouldShowRevert = isLastUserMessage && showRevertButton;
+
+        console.log('[MessageList] Message', index, '- sender:', message.sender, 'isLastUserMessage:', isLastUserMessage, 'lastUserMessageIndex:', lastUserMessageIndex, 'shouldShowRevert:', shouldShowRevert);
+
+        return (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            isLatest={index === messages.length - 1}
+            showRevertButton={shouldShowRevert}
+            onRevert={onRevert}
+          />
+        );
+      })}
 
       {/* Streaming message */}
       {(streamingMessage || isStreaming) && (

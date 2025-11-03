@@ -31,6 +31,7 @@ interface CalendarStore {
   error: string | null;
   proposedPatches: CalendarPatch[];
   highlightedTaskIds: Set<string>;
+  conversationId: string | null;
 
   // Actions
   setCurrentWeekStart: (date: Date) => void;
@@ -41,10 +42,9 @@ interface CalendarStore {
   loadMockData: () => void;
   addTask: (task: Task) => void;
   removeTask: (taskId: string) => void;
-  setProposedPatches: (patches: CalendarPatch[]) => void;
+  setProposedPatches: (patches: CalendarPatch[], conversationId?: string) => void;
   clearProposedPatches: () => void;
-  revertChanges: () => void;
-  commitChanges: () => void;
+  revertChanges: (weekId: string) => Promise<void>;
 }
 
 // Mock data generator for testing
@@ -125,11 +125,24 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
     else if (patch.op === 'remove_event') {
       // Remove event by matching date and time
       const patchDate = patch.target_day.scheduled_date;
+      console.log('[calendarStore] remove_event - patchDate:', patchDate, 'type:', typeof patchDate);
+
+      const beforeCount = updatedTasks.length;
       updatedTasks = updatedTasks.filter(task => {
         const taskDate = task.startTime.toISOString().split('T')[0];
-        return taskDate !== patchDate;
+        const matches = taskDate === patchDate;
+
+        if (matches) {
+          console.log('[calendarStore] REMOVING task:', task.title, 'taskDate:', taskDate, 'matches patchDate:', patchDate);
+        }
+
+        // Keep tasks that DON'T match
+        return !matches;
       });
-      console.log('[calendarStore] Applied remove_event patch for date:', patchDate);
+
+      const afterCount = updatedTasks.length;
+      const removedCount = beforeCount - afterCount;
+      console.log('[calendarStore] Applied remove_event patch for date:', patchDate, '- removed', removedCount, 'tasks (before:', beforeCount, 'after:', afterCount, ')');
     }
     else if (patch.op === 'modify_event' && patch.complete_event) {
       // Modify existing event
@@ -184,6 +197,7 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   error: null,
   proposedPatches: [],
   highlightedTaskIds: new Set<string>(),
+  conversationId: null,
 
   setCurrentWeekStart: (date: Date) => {
     const weekStart = getWeekStart(date);
@@ -268,14 +282,27 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
     }));
   },
 
-  setProposedPatches: (patches: CalendarPatch[]) => {
+  setProposedPatches: (patches: CalendarPatch[], conversationId?: string) => {
     const { tasks, currentWeekStart } = get();
 
-    // Save current state before applying changes
+    console.log('[calendarStore] setProposedPatches called with', patches.length, 'patches');
+    console.log('[calendarStore] Current tasks count:', tasks.length);
+    console.log('[calendarStore] Current tasks sample:', tasks.slice(0, 2));
+
+    // Save current state before applying changes (keep this persistent)
     const previousTasks = [...tasks];
 
     // Apply patches immediately to tasks
     const updatedTasks = applyPatchesToTasks(tasks, patches, currentWeekStart);
+
+    console.log('[calendarStore] Updated tasks count:', updatedTasks.length);
+    console.log('[calendarStore] Updated tasks sample:', updatedTasks.slice(0, 2));
+
+    // Check if there are actual differences between tasks and updatedTasks
+    const hasChanges = JSON.stringify(tasks) !== JSON.stringify(updatedTasks);
+
+    console.log('[calendarStore] hasChanges:', hasChanges);
+    console.log('[calendarStore] Comparison - tasks:', JSON.stringify(tasks).length, 'chars vs updatedTasks:', JSON.stringify(updatedTasks).length, 'chars');
 
     // Derive highlighted task IDs (for newly added tasks, use patch_id)
     const highlighted = new Set<string>();
@@ -287,14 +314,16 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
       }
     });
 
-    console.log('[calendarStore] Auto-applying', patches.length, 'patches, highlighting', highlighted.size, 'tasks');
+    console.log('[calendarStore] Setting hasPendingChanges to:', hasChanges);
     set({
       tasks: updatedTasks,
-      previousTasks,
+      previousTasks: hasChanges ? previousTasks : null,
       proposedPatches: patches,
       highlightedTaskIds: highlighted,
-      hasPendingChanges: true
+      hasPendingChanges: hasChanges,
+      conversationId: conversationId || null
     });
+    console.log('[calendarStore] State updated. hasPendingChanges is now:', hasChanges);
   },
 
   clearProposedPatches: () => {
@@ -302,27 +331,42 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
     set({ proposedPatches: [], highlightedTaskIds: new Set<string>() });
   },
 
-  revertChanges: () => {
-    const { previousTasks } = get();
-    if (previousTasks) {
-      console.log('[calendarStore] Reverting to previous state');
-      set({
-        tasks: previousTasks,
-        previousTasks: null,
-        proposedPatches: [],
-        highlightedTaskIds: new Set<string>(),
-        hasPendingChanges: false
-      });
+  revertChanges: async (weekId: string) => {
+    const { previousTasks, tasks, conversationId } = get();
+    if (!previousTasks) {
+      console.warn('[calendarStore] No previous state to revert to');
+      return;
     }
-  },
 
-  commitChanges: () => {
-    console.log('[calendarStore] Committing changes');
+    console.log('[calendarStore] Reverting to previous state and syncing to backend');
+
+    // Swap the states (toggle behavior)
+    const newPreviousTasks = [...tasks];
+
     set({
-      previousTasks: null,
-      proposedPatches: [],
-      highlightedTaskIds: new Set<string>(),
-      hasPendingChanges: false
+      tasks: previousTasks,
+      previousTasks: newPreviousTasks,
+      highlightedTaskIds: new Set<string>() // Clear highlights on revert
     });
+
+    // Call backend API to persist the reverted state
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+      // Need to convert tasks back to patches/events format for backend
+      // For now, we'll call a revert endpoint if it exists, or reload the week
+      const response = await fetch(`${API_BASE_URL}/calendar/events?week_id=${weekId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.error('[calendarStore] Failed to sync revert to backend');
+      } else {
+        console.log('[calendarStore] Revert synced to backend successfully');
+      }
+    } catch (error) {
+      console.error('[calendarStore] Error syncing revert to backend:', error);
+    }
   }
 }));

@@ -1,3 +1,4 @@
+import { AnimatePresence } from 'framer-motion';
 import type { Task } from '../types/calendar.types';
 import { getDayInfo } from '../utils/dateHelpers';
 import { calculateTaskPosition, calculateTaskHeight } from '../utils/timeCalculations';
@@ -60,27 +61,29 @@ export default function DayColumn({
 
       {/* Tasks Container - Positioned based on time */}
       <div className="flex-1 relative px-4">
-        {tasks.map((task) => {
-          const topPosition = calculateTaskPosition(task.startTime);
-          const height = calculateTaskHeight(task.startTime, task.endTime);
+        <AnimatePresence mode="popLayout">
+          {tasks.map((task) => {
+            const topPosition = calculateTaskPosition(task.startTime);
+            const height = calculateTaskHeight(task.startTime, task.endTime);
 
-          return (
-            <AnimatedTaskCard
-              key={task.id}
-              task={task}
-              isSelected={selectedTaskId === task.id}
-              onClick={() => onTaskClick(task.id)}
-              isChatOpen={isChatOpen}
-              isHighlighted={highlightedTaskIds.has(task.id)}
-              style={{
-                top: `${topPosition}%`,
-                height: `${height}%`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-              }}
-            />
-          );
-        })}
+            return (
+              <AnimatedTaskCard
+                key={task.id}
+                task={task}
+                isSelected={selectedTaskId === task.id}
+                onClick={() => onTaskClick(task.id)}
+                isChatOpen={isChatOpen}
+                isHighlighted={highlightedTaskIds.has(task.id)}
+                style={{
+                  top: `${topPosition}%`,
+                  height: `${height}%`,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            );
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );

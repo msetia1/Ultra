@@ -82,14 +82,21 @@ export function useCalendarChat(weekId: string) {
 
             } else if (data.type === 'patch_proposed') {
               // Add patch to preview list
+              console.log('[useCalendarChat] Received patch_proposed event:', data.patch);
               if (data.patch) {
-                setProposedPatches(prev => [...prev, data.patch!]);
+                setProposedPatches(prev => {
+                  const newPatches = [...prev, data.patch!];
+                  console.log('[useCalendarChat] Updated proposedPatches, now has', newPatches.length, 'patches');
+                  return newPatches;
+                });
               }
 
             } else if (data.type === 'final') {
               // Complete response
+              console.log('[useCalendarChat] Received final event with', (data.patches || []).length, 'patches');
               setStreamedMessage(data.message || '');
               setProposedPatches(data.patches || []);
+              console.log('[useCalendarChat] Set proposedPatches to:', data.patches);
               if (data.conversation_id) {
                 setConversationId(data.conversation_id);
               }

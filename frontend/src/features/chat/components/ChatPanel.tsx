@@ -38,18 +38,32 @@ export default function ChatPanel() {
     clearPatches,
   } = useCalendarChat(weekId);
 
-  const { setProposedPatches, commitChanges } = useCalendarStore();
+  const { setProposedPatches, hasPendingChanges, revertChanges } = useCalendarStore();
+
+  console.log('[ChatPanel] Render - hasPendingChanges:', hasPendingChanges);
 
   // Sync proposed patches to calendar store for live UI updates
+  // Only apply when streaming is complete to avoid re-applying patches multiple times
   useEffect(() => {
-    if (proposedPatches.length > 0) {
-      console.log('[ChatPanel] Syncing', proposedPatches.length, 'patches to calendarStore');
-      setProposedPatches(proposedPatches);
+    console.log('[ChatPanel] useEffect triggered - proposedPatches:', proposedPatches);
+    console.log('[ChatPanel] proposedPatches.length:', proposedPatches.length);
+    console.log('[ChatPanel] conversationId:', conversationId);
+    console.log('[ChatPanel] isStreaming:', isStreaming);
+
+    if (!isStreaming && proposedPatches.length > 0) {
+      console.log('[ChatPanel] Condition met! Syncing', proposedPatches.length, 'patches to calendarStore');
+      setProposedPatches(proposedPatches, conversationId || undefined);
+    } else {
+      console.log('[ChatPanel] Condition NOT met - isStreaming:', isStreaming, 'patches.length:', proposedPatches.length);
     }
-  }, [proposedPatches, setProposedPatches]);
+  }, [proposedPatches, conversationId, isStreaming, setProposedPatches]);
+
+  useEffect(() => {
+    console.log('[ChatPanel] hasPendingChanges changed to:', hasPendingChanges);
+  }, [hasPendingChanges]);
 
   // Sync backend AI response to Zustand store when streaming completes
-  // Auto-accept patches and call backend API
+  // Auto-accept patches and call backend API (but keep revert button visible)
   useEffect(() => {
     if (!isStreaming && streamedMessage && proposedPatches.length > 0) {
       useChatStore.getState().addMessage(streamedMessage, 'ai');
@@ -72,14 +86,14 @@ export default function ChatPanel() {
             console.error('[ChatPanel] Failed to accept patches:', response.status);
           } else {
             console.log('[ChatPanel] Patches auto-accepted successfully');
-            commitChanges(); // Clear pending state after successful API call
+            // Don't clear pending state - keep revert button visible for toggling
           }
         } catch (error) {
           console.error('[ChatPanel] Error auto-accepting patches:', error);
         }
       })();
     }
-  }, [isStreaming, streamedMessage, proposedPatches, conversationId, weekId, commitChanges]);
+  }, [isStreaming, streamedMessage, proposedPatches, conversationId, weekId]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -160,6 +174,11 @@ export default function ChatPanel() {
         streamingMessage={streamedMessage || streamingMessage}
         isStreaming={isStreaming || isStreamingStore}
         error={error}
+        showRevertButton={hasPendingChanges}
+        onRevert={() => {
+          console.log('[ChatPanel] Revert button clicked');
+          revertChanges(weekId);
+        }}
       />
 
       {/* Input */}

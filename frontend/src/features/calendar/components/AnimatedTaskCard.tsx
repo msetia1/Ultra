@@ -24,8 +24,29 @@ export default function AnimatedTaskCard({
 }: AnimatedTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Extract transform from parent style for proper hover handling
-  const parentTransform = style?.transform || '';
+  // Animation variants for smooth enter/exit/edit
+  const cardVariants = {
+    initial: {
+      opacity: 0,
+      scale: 0.95,
+    },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut"
+      }
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.95,
+      transition: {
+        duration: 0.3,
+        ease: "easeIn"
+      }
+    }
+  };
 
   // Render expanded card content
   const expandedCardContent = (
@@ -97,7 +118,11 @@ export default function AnimatedTaskCard({
 
   return (
     <>
-    <div
+    <motion.div
+      variants={cardVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
       onClick={(e) => {
         console.log('[AnimatedTaskCard] Clicked! isSelected:', isSelected, 'taskId:', task.id);
         e.stopPropagation();
@@ -109,23 +134,29 @@ export default function AnimatedTaskCard({
       onMouseEnter={() => !isSelected && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "group relative cursor-pointer rounded-[10px] overflow-hidden transition-all duration-300",
+        "group relative cursor-pointer rounded-[10px] overflow-hidden",
         "border border-white/10 bg-black",
         "flex flex-col",
         `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
         isSelected && "invisible"
       )}
       style={{
-        ...style,
+        // Spread only positioning props, not transform
+        top: style?.top,
+        height: style?.height,
+        left: style?.left,
+        // Use framer-motion's composable transform props
+        x: '-50%',  // Replaces translateX(-50%)
+        y: isHovered ? -2 : 0,  // Replaces translateY(-2px) on hover
         backgroundColor: 'black',
-        borderColor: isHighlighted ? 'rgba(252, 236, 201, 0.6)' : 'rgba(255, 255, 255, 0.1)',
-        transform: isHovered ? `${parentTransform} translateY(-2px)` : parentTransform,
+        borderColor: isHighlighted ? 'rgba(252, 236, 201, 0.8)' : 'rgba(255, 255, 255, 0.1)',
         boxShadow: isHighlighted
-          ? '0 0 20px rgba(252, 236, 201, 0.4), 0 0 40px rgba(252, 236, 201, 0.2)'
+          ? '0 0 20px rgba(252, 236, 201, 0.5), 0 0 40px rgba(252, 236, 201, 0.3), 0 0 60px rgba(252, 236, 201, 0.1)'
           : isHovered
             ? '0 2px 12px rgba(255, 255, 255, 0.03)'
             : 'none',
         animation: isHighlighted ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+        transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
       }}
     >
       {/* Radial gradient dot pattern background - visible on hover when not selected */}
@@ -239,7 +270,7 @@ export default function AnimatedTaskCard({
       {!isSelected && (
         <div className="absolute inset-0 -z-10 rounded-[10px] p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       )}
-    </div>
+    </motion.div>
     {/* Render expanded card via portal to escape stacking context */}
     {createPortal(
       <AnimatePresence>
