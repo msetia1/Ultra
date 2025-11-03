@@ -66,6 +66,9 @@ CONVERSATION FLOW:
 4. After tool execution, describe changes and ask user to review the preview
 5. Be concise and helpful
 
+IMPORTANT RULE:
+before calling any tools, always give a quick response first to acknowledge the user's request and say what you are going to do.
+
 IMPORTANT:
 - Always acknowledge the user's request with a brief response before executing tools
 - Tools handle their own context automatically (don't duplicate data)
@@ -75,7 +78,7 @@ IMPORTANT:
     return Agent(
         name="CalendarConversationAgent",
         instructions=instructions,
-        model="google/gemini-2.5-flash",
+        model="openai/gpt-4.1",
         tools=[
             run_add_event_agent,
             run_remove_event_agent,

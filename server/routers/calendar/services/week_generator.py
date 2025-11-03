@@ -428,7 +428,7 @@ with each event conforming to the structure above. No prose before or after the 
         # Use streaming API with web search capability
         try:
             stream = await client.chat.completions.create(
-                model="google/gemini-2.5-pro",
+                model="google/gemini-2.5-flash",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Generate a balanced weekly schedule focused on {goals_text}. Include work, wellness, and personal time."}
