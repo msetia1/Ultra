@@ -1,9 +1,9 @@
 import { AnimatePresence } from 'framer-motion';
 import type { Task } from '../types/calendar.types';
 import { getDayInfo } from '../utils/dateHelpers';
-import { calculateTaskPosition, calculateTaskHeight, calculateTaskLayout } from '../utils/timeCalculations';
+import { calculateTaskPosition, calculateTaskHeight, adjustPositionsForMinimumGaps, type EventWithPosition } from '../utils/timeCalculations';
 import AnimatedTaskCard from './AnimatedTaskCard';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 
 interface DayColumnProps {
   date: Date;
@@ -30,8 +30,63 @@ export default function DayColumn({
 }: DayColumnProps) {
   const { name, number } = getDayInfo(date);
 
-  // Calculate layout for overlapping tasks
-  const taskLayout = useMemo(() => calculateTaskLayout(tasks), [tasks]);
+  // Ref to measure container height for gap calculations
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(800); // Default fallback
+
+  // Measure container height on mount and window resize
+  // Using useLayoutEffect for earlier measurement before paint
+  useLayoutEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.offsetHeight;
+        console.log(`[DayColumn ${getDayInfo(date).name}] Container height measured:`, height + 'px');
+        setContainerHeight(height);
+      } else {
+        console.warn(`[DayColumn ${getDayInfo(date).name}] containerRef not attached yet`);
+      }
+    };
+
+    // Immediate measurement
+    updateHeight();
+
+    // Also measure after a brief delay to ensure flex layout is complete
+    const timeoutId = setTimeout(() => {
+      updateHeight();
+    }, 50);
+
+    window.addEventListener('resize', updateHeight);
+    return () => {
+      window.removeEventListener('resize', updateHeight);
+      clearTimeout(timeoutId);
+    };
+  }, [date]);
+
+  // Calculate adjusted positions with minimum gaps
+  const adjustedPositions = useMemo(() => {
+    console.log(`[DayColumn ${name}] Calculating adjusted positions for ${tasks.length} tasks`);
+
+    const eventsWithPositions: EventWithPosition[] = tasks.map(task => ({
+      id: task.id,
+      startTime: task.startTime,
+      endTime: task.endTime,
+      topPercent: calculateTaskPosition(task.startTime),
+      heightPercent: calculateTaskHeight(task.startTime, task.endTime),
+    }));
+
+    const adjusted = adjustPositionsForMinimumGaps(eventsWithPositions, containerHeight);
+
+    console.log(`[DayColumn ${name}] Adjusted positions:`, {
+      containerHeight,
+      adjustedCount: adjusted.size,
+      sample: Array.from(adjusted.entries()).slice(0, 3).map(([id, pos]) => ({
+        id: id.substring(0, 8),
+        adjustedTop: pos.toFixed(2) + '%'
+      }))
+    });
+
+    return adjusted;
+  }, [tasks, containerHeight, name]);
 
   return (
     <div
@@ -67,27 +122,12 @@ export default function DayColumn({
       </div>
 
       {/* Tasks Container - Positioned based on time */}
-      <div className="relative px-4" style={{ minHeight: '800px' }}>
+      <div ref={containerRef} className="relative px-4" style={{ minHeight: '800px' }}>
         <AnimatePresence mode="popLayout">
           {tasks.map((task) => {
-            const topPosition = calculateTaskPosition(task.startTime);
+            // Use adjusted position with minimum gap enforcement, fallback to calculated if not found
+            const topPosition = adjustedPositions.get(task.id) ?? calculateTaskPosition(task.startTime);
             const height = calculateTaskHeight(task.startTime, task.endTime);
-
-            // Get layout info for overlapping tasks
-            const layout = taskLayout.get(task.id);
-
-            // Calculate horizontal positioning based on lane
-            let leftPosition = '50%';
-            let transformX = '-50%';
-            let widthPercent = 90; // Default width
-
-            if (layout && layout.totalLanes > 1) {
-              // Multiple lanes needed - position side by side
-              const laneWidth = 100 / layout.totalLanes;
-              leftPosition = `${layout.lane * laneWidth}%`;
-              transformX = '0%';
-              widthPercent = Math.min(90, laneWidth - 2); // Leave small gap between cards
-            }
 
             return (
               <AnimatedTaskCard
@@ -100,9 +140,9 @@ export default function DayColumn({
                 style={{
                   top: `${topPosition}%`,
                   height: `${height}%`,
-                  left: leftPosition,
-                  transform: `translateX(${transformX})`,
-                  width: `${widthPercent}%`,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '90%',
                 }}
               />
             );

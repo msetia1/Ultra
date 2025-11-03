@@ -115,8 +115,16 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
   patches.forEach(patch => {
     if (patch.op === 'add_event' && patch.complete_event) {
       // Add new event
+      console.log('🐛 [TIMEZONE DEBUG] Raw date string:', patch.complete_event.date);
       const eventDate = new Date(patch.complete_event.date);
+      console.log('🐛 [TIMEZONE DEBUG] Parsed Date object:', eventDate.toISOString());
+      console.log('🐛 [TIMEZONE DEBUG] Local date:', eventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      console.log('🐛 [TIMEZONE DEBUG] Timezone offset (minutes):', eventDate.getTimezoneOffset());
+      console.log('🐛 [TIMEZONE DEBUG] Current week start:', currentWeekStart.toISOString());
+
       const dayOfWeek = calculateDayOfWeek(eventDate, currentWeekStart);
+      console.log('🐛 [TIMEZONE DEBUG] Calculated dayOfWeek:', dayOfWeek, '(0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun)');
+
       const startTime = parseTimeString(patch.complete_event.start_time, eventDate);
       const endTime = parseTimeString(patch.complete_event.end_time, eventDate);
 
@@ -130,29 +138,15 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
       };
 
       updatedTasks.push(newTask);
-      console.log('[calendarStore] Applied add_event patch:', newTask.title);
     }
     else if (patch.op === 'remove_event') {
       // Remove event by matching date and time
       const patchDate = patch.target_day.scheduled_date;
-      console.log('[calendarStore] remove_event - patchDate:', patchDate, 'type:', typeof patchDate);
 
-      const beforeCount = updatedTasks.length;
       updatedTasks = updatedTasks.filter(task => {
         const taskDate = task.startTime.toISOString().split('T')[0];
-        const matches = taskDate === patchDate;
-
-        if (matches) {
-          console.log('[calendarStore] REMOVING task:', task.title, 'taskDate:', taskDate, 'matches patchDate:', patchDate);
-        }
-
-        // Keep tasks that DON'T match
-        return !matches;
+        return taskDate !== patchDate;
       });
-
-      const afterCount = updatedTasks.length;
-      const removedCount = beforeCount - afterCount;
-      console.log('[calendarStore] Applied remove_event patch for date:', patchDate, '- removed', removedCount, 'tasks (before:', beforeCount, 'after:', afterCount, ')');
     }
     else if (patch.op === 'modify_event' && patch.complete_event) {
       // Modify existing event
@@ -169,7 +163,6 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
         }
         return task;
       });
-      console.log('[calendarStore] Applied modify_event patch');
     }
     else if (patch.op === 'move_event' && patch.complete_event) {
       // Move event to new date/time
@@ -192,7 +185,6 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
         }
         return task;
       });
-      console.log('[calendarStore] Applied move_event patch');
     }
   });
 
@@ -299,18 +291,11 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   setProposedPatches: (patches: CalendarPatch[], conversationId?: string) => {
     const { tasks, currentWeekStart } = get();
 
-    console.log('[calendarStore] setProposedPatches called with', patches.length, 'patches');
-    console.log('[calendarStore] Current tasks count:', tasks.length);
-    console.log('[calendarStore] Current tasks sample:', tasks.slice(0, 2));
-
-    // Save current state before applying changes (keep this persistent)
+    // Save current state before applying changes
     const previousTasks = [...tasks];
 
     // Apply patches immediately to tasks
     const updatedTasks = applyPatchesToTasks(tasks, patches, currentWeekStart);
-
-    console.log('[calendarStore] Updated tasks count:', updatedTasks.length);
-    console.log('[calendarStore] Updated tasks sample:', updatedTasks.slice(0, 2));
 
     // Check if there are actual differences between tasks and updatedTasks
     const hasChanges = JSON.stringify(tasks) !== JSON.stringify(updatedTasks);

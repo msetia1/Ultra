@@ -1,4 +1,9 @@
 /**
+ * Minimum gap between event cards in pixels
+ */
+export const MIN_CARD_GAP_PX = 40;
+
+/**
  * Format time for display (e.g., "10:00 AM")
  */
 export function formatTime(date: Date): string {
@@ -201,4 +206,101 @@ function calculateMaxConcurrentTasks<T extends { startTime: Date; endTime: Date 
   }
 
   return maxConcurrent;
+}
+
+/**
+ * Interface for events with calculated positions
+ */
+export interface EventWithPosition {
+  id: string;
+  startTime: Date;
+  endTime: Date;
+  topPercent: number;
+  heightPercent: number;
+}
+
+/**
+ * Adjust event positions to ensure minimum gaps between cards
+ * while preserving time-based proportional spacing for larger gaps.
+ *
+ * @param events - Events with their calculated time-based positions
+ * @param containerHeightPx - Height of the container in pixels
+ * @returns Map of event ID to adjusted top position percentage
+ */
+export function adjustPositionsForMinimumGaps(
+  events: EventWithPosition[],
+  containerHeightPx: number
+): Map<string, number> {
+  const adjustedPositions = new Map<string, number>();
+
+  if (events.length === 0 || containerHeightPx === 0) {
+    console.log('[Gap Adjustment] Skipping - no events or zero container height', {
+      eventCount: events.length,
+      containerHeightPx
+    });
+    return adjustedPositions;
+  }
+
+  console.log('[Gap Adjustment] Starting gap adjustment', {
+    eventCount: events.length,
+    containerHeightPx,
+    minGapPx: MIN_CARD_GAP_PX
+  });
+
+  // Sort events by their original top position (which is time-based)
+  const sortedEvents = [...events].sort((a, b) => a.topPercent - b.topPercent);
+
+  let adjustmentsMade = 0;
+
+  // Process each event sequentially
+  for (let i = 0; i < sortedEvents.length; i++) {
+    const currentEvent = sortedEvents[i];
+
+    if (i === 0) {
+      // First event keeps its original position
+      adjustedPositions.set(currentEvent.id, currentEvent.topPercent);
+      console.log(`[Gap Adjustment] Event ${i}: First event, keeping position ${currentEvent.topPercent.toFixed(2)}%`);
+    } else {
+      const previousEvent = sortedEvents[i - 1];
+      const previousAdjustedTop = adjustedPositions.get(previousEvent.id)!;
+      const previousBottom = previousAdjustedTop + previousEvent.heightPercent;
+
+      // Calculate the gap in pixels
+      const gapPercent = currentEvent.topPercent - previousBottom;
+      const gapPx = (gapPercent / 100) * containerHeightPx;
+
+      // Defensive check: if gap is negative, events overlap (shouldn't happen)
+      if (gapPercent < 0) {
+        console.warn(`[Gap Adjustment] Event ${i}: OVERLAP DETECTED (gap: ${gapPercent.toFixed(2)}%)`, {
+          currentStart: currentEvent.topPercent,
+          previousEnd: previousBottom
+        });
+        // Keep original position for overlapping events
+        adjustedPositions.set(currentEvent.id, currentEvent.topPercent);
+        continue;
+      }
+
+      if (gapPx < MIN_CARD_GAP_PX) {
+        // Gap is too small, push current event down to meet minimum
+        const minGapPercent = (MIN_CARD_GAP_PX / containerHeightPx) * 100;
+        const adjustedTop = previousBottom + minGapPercent;
+        adjustedPositions.set(currentEvent.id, adjustedTop);
+        adjustmentsMade++;
+
+        console.log(`[Gap Adjustment] Event ${i}: Gap too small`, {
+          originalTop: currentEvent.topPercent.toFixed(2) + '%',
+          adjustedTop: adjustedTop.toFixed(2) + '%',
+          gapPx: gapPx.toFixed(1) + 'px',
+          pushedDown: ((adjustedTop - currentEvent.topPercent) / 100 * containerHeightPx).toFixed(1) + 'px'
+        });
+      } else {
+        // Gap is sufficient, keep original time-based position
+        adjustedPositions.set(currentEvent.id, currentEvent.topPercent);
+        console.log(`[Gap Adjustment] Event ${i}: Gap sufficient (${gapPx.toFixed(1)}px), keeping position`);
+      }
+    }
+  }
+
+  console.log(`[Gap Adjustment] Complete - ${adjustmentsMade} events adjusted`);
+  return adjustedPositions;
 }

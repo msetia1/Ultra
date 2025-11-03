@@ -23,30 +23,17 @@ interface ChatStore {
 export const useChatStore = create<ChatStore>()(
   persist(
     (set) => {
-      console.log('[chatStore] Store initializing');
       return {
         isOpen: false,
         messages: [],
         streamingMessage: '',
         isStreaming: false,
 
-      toggleChat: () => {
-        console.log('[chatStore] toggleChat called');
-        return set((state) => {
-          console.log('[chatStore] Current isOpen:', state.isOpen, '-> New isOpen:', !state.isOpen);
-          return { isOpen: !state.isOpen };
-        });
-      },
+      toggleChat: () => set((state) => ({ isOpen: !state.isOpen })),
 
-      openChat: () => {
-        console.log('[chatStore] openChat called');
-        return set({ isOpen: true });
-      },
+      openChat: () => set({ isOpen: true }),
 
-      closeChat: () => {
-        console.log('[chatStore] closeChat called');
-        return set({ isOpen: false });
-      },
+      closeChat: () => set({ isOpen: false }),
 
       addMessage: (content: string, sender: 'user' | 'ai') =>
         set((state) => ({

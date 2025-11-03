@@ -84,26 +84,17 @@ export function useCalendarChat(weekId: string) {
 
             } else if (data.type === 'patch_proposed') {
               // Add patch to preview list
-              console.log('[useCalendarChat] Received patch_proposed event:', data.patch);
               if (data.patch) {
-                setProposedPatches(prev => {
-                  const newPatches = [...prev, data.patch!];
-                  console.log('[useCalendarChat] Updated proposedPatches, now has', newPatches.length, 'patches');
-                  return newPatches;
-                });
+                setProposedPatches(prev => [...prev, data.patch!]);
               }
 
             } else if (data.type === 'final') {
               // Complete response - add AI message from final event
-              console.log('[useCalendarChat] Received final event with', (data.patches || []).length, 'patches');
-
-              // Add the AI message directly from the final event
               if (data.message) {
                 useChatStore.getState().addMessage(data.message, 'ai');
               }
 
               setProposedPatches(data.patches || []);
-              console.log('[useCalendarChat] Set proposedPatches to:', data.patches);
               if (data.conversation_id) {
                 setConversationId(data.conversation_id);
               }

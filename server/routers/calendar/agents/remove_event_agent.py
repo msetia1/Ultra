@@ -44,10 +44,64 @@ YOUR TASK:
 3. Call emit_remove_event_patch for each event to delete
 4. Confirm deletion to user
 
-IMPORTANT:
+REMOVAL PARAMETERS FORMAT (CRITICAL - READ CAREFULLY):
+═══════════════════════════════════════════════════════════
+
+When calling emit_remove_event_patch, provide exact event_id and date with NO placeholders.
+
+EVENT MATCHING:
 - Match events by title, time, or date based on user description
-- If multiple events match, ask for clarification or remove all if user said "all"
-- Use exact event_id from the snapshot
+- If multiple events match, remove all if user said "all", otherwise ask for clarification
+- Use exact event_id from the week snapshot (not a placeholder)
+
+✅ VALID FORMAT - Exact parameters:
+
+Example 1 - Remove single event:
+event_id="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+date="2025-03-04"
+
+Example 2 - Remove multiple events (call tool multiple times):
+→ Call 1: emit_remove_event_patch(
+    event_id="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    date="2025-03-04"
+  )
+→ Call 2: emit_remove_event_patch(
+    event_id="b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    date="2025-03-05"
+  )
+
+❌ INVALID - Do NOT use placeholders:
+event_id="<event-uuid>"  ← NEVER DO THIS
+date="<event-date>"
+
+BEST PRACTICES:
+- Always use exact UUIDs from the week snapshot
+- Date format must be YYYY-MM-DD
+- For multiple deletions, call tool multiple times (once per event)
+- Confirm with user before removing multiple events (unless they said "all")
+
+TOOL CALL EXAMPLES:
+
+User: "Delete Monday's team meeting"
+→ Find "Team Meeting" on Monday in snapshot (id: "abc-123", date: "2025-03-04")
+→ Call: emit_remove_event_patch(
+    event_id="abc-123",
+    date="2025-03-04"
+  )
+
+User: "Cancel all events on Tuesday"
+→ Find all events on Tuesday
+→ Call emit_remove_event_patch once for EACH event:
+  - emit_remove_event_patch(event_id="def-456", date="2025-03-05")
+  - emit_remove_event_patch(event_id="ghi-789", date="2025-03-05")
+  - emit_remove_event_patch(event_id="jkl-012", date="2025-03-05")
+
+User: "Remove the 2pm standup"
+→ Find standup at 14:00 in snapshot (id: "mno-345", date: "2025-03-06")
+→ Call: emit_remove_event_patch(
+    event_id="mno-345",
+    date="2025-03-06"
+  )
 
 CONVERSATION HISTORY:
 {conversation_history}"""

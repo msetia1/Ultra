@@ -34,27 +34,12 @@ export default function ChatPanel() {
 
   const { setProposedPatches, hasPendingChanges, revertChanges, clearProposedPatches } = useCalendarStore();
 
-  console.log('[ChatPanel] Render - hasPendingChanges:', hasPendingChanges);
-
   // Sync proposed patches to calendar store for live UI updates
-  // Only apply when streaming is complete to avoid re-applying patches multiple times
   useEffect(() => {
-    console.log('[ChatPanel] useEffect triggered - proposedPatches:', proposedPatches);
-    console.log('[ChatPanel] proposedPatches.length:', proposedPatches.length);
-    console.log('[ChatPanel] conversationId:', conversationId);
-    console.log('[ChatPanel] isStreaming:', isStreaming);
-
     if (!isStreaming && proposedPatches.length > 0) {
-      console.log('[ChatPanel] Condition met! Syncing', proposedPatches.length, 'patches to calendarStore');
       setProposedPatches(proposedPatches, conversationId || undefined);
-    } else {
-      console.log('[ChatPanel] Condition NOT met - isStreaming:', isStreaming, 'patches.length:', proposedPatches.length);
     }
   }, [proposedPatches, conversationId, isStreaming, setProposedPatches]);
-
-  useEffect(() => {
-    console.log('[ChatPanel] hasPendingChanges changed to:', hasPendingChanges);
-  }, [hasPendingChanges]);
 
   // Auto-accept patches when streaming completes
   useEffect(() => {

@@ -15,11 +15,6 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.sender === 'user';
 
-  console.log('[MessageBubble] Rendering message - isUser:', isUser, 'showRevertButton:', showRevertButton, 'onRevert exists:', !!onRevert);
-
-  const shouldRenderButton = isUser && showRevertButton && onRevert;
-  console.log('[MessageBubble] shouldRenderButton:', shouldRenderButton);
-
   return (
     <div
       style={{

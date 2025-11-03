@@ -22,10 +22,6 @@ export default function MessageList({
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  console.log('[MessageList] Render - showRevertButton:', showRevertButton);
-  console.log('[MessageList] messages count:', messages.length);
-  console.log('[MessageList] messages:', messages.map(m => ({ sender: m.sender, id: m.id })));
-
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,8 +63,6 @@ export default function MessageList({
 
         const isLastUserMessage = message.sender === 'user' && index === lastUserMessageIndex;
         const shouldShowRevert = isLastUserMessage && showRevertButton;
-
-        console.log('[MessageList] Message', index, '- sender:', message.sender, 'isLastUserMessage:', isLastUserMessage, 'lastUserMessageIndex:', lastUserMessageIndex, 'shouldShowRevert:', shouldShowRevert);
 
         return (
           <MessageBubble
