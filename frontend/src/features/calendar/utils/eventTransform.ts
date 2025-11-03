@@ -14,8 +14,9 @@ export function transformGeneratedEventToTask(
   event: GeneratedEvent,
   weekStart: Date
 ): Task {
-  // Parse scheduled_date (YYYY-MM-DD)
-  const scheduledDate = new Date(event.scheduled_date);
+  // Parse scheduled_date (YYYY-MM-DD) in local timezone
+  const [year, month, day] = event.scheduled_date.split('-').map(Number);
+  const scheduledDate = new Date(year, month - 1, day);
 
   // Create Date objects for start and end times
   const [startHour, startMinute] = event.start_time.split(':').map(Number);
@@ -27,7 +28,7 @@ export function transformGeneratedEventToTask(
   endTime.setHours(endHour, endMinute, 0, 0);
 
   // Calculate dayOfWeek (0=Monday, 6=Sunday)
-  const dayOfWeek = calculateDayOfWeek(scheduledDate, weekStart);
+  const dayOfWeek = calculateDayOfWeek(event.scheduled_date, weekStart);
 
   return {
     id: `generated-${Date.now()}-${Math.random()}`, // Temporary ID until backend assigns one
@@ -46,8 +47,9 @@ export function transformCalendarEventToTask(
   event: CalendarEvent,
   weekStart: Date
 ): Task {
-  // Parse scheduled_date (YYYY-MM-DD)
-  const scheduledDate = new Date(event.scheduled_date);
+  // Parse scheduled_date (YYYY-MM-DD) in local timezone
+  const [year, month, day] = event.scheduled_date.split('-').map(Number);
+  const scheduledDate = new Date(year, month - 1, day);
 
   // Create Date objects for start and end times
   const [startHour, startMinute] = event.start_time.split(':').map(Number);
@@ -59,7 +61,7 @@ export function transformCalendarEventToTask(
   endTime.setHours(endHour, endMinute, 0, 0);
 
   // Calculate dayOfWeek (0=Monday, 6=Sunday)
-  const dayOfWeek = calculateDayOfWeek(scheduledDate, weekStart);
+  const dayOfWeek = calculateDayOfWeek(event.scheduled_date, weekStart);
 
   return {
     id: event.id,
@@ -74,9 +76,21 @@ export function transformCalendarEventToTask(
 /**
  * Calculate day of week index relative to week start (Monday)
  * Returns: 0=Monday, 1=Tuesday, ... 6=Sunday
+ *
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param weekStart - Week start date (will be normalized to midnight)
  */
-function calculateDayOfWeek(date: Date, weekStart: Date): number {
+function calculateDayOfWeek(dateStr: string, weekStart: Date): number {
+  // Parse date in local timezone (not UTC) to avoid timezone conversion
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const eventDate = new Date(year, month - 1, day);
+
+  // Normalize both dates to midnight for accurate day comparison
+  eventDate.setHours(0, 0, 0, 0);
+  const normalizedWeekStart = new Date(weekStart);
+  normalizedWeekStart.setHours(0, 0, 0, 0);
+
   const msPerDay = 86400000;
-  const daysDiff = Math.floor((date.getTime() - weekStart.getTime()) / msPerDay);
+  const daysDiff = Math.round((eventDate.getTime() - normalizedWeekStart.getTime()) / msPerDay);
   return daysDiff;
 }

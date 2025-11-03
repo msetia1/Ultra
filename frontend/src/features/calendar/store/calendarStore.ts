@@ -102,9 +102,18 @@ function generateMockTasks(): Task[] {
 
 // Helper function to calculate day of week index relative to week start (Monday)
 // Returns: 0=Monday, 1=Tuesday, ... 6=Sunday
-function calculateDayOfWeek(date: Date, weekStart: Date): number {
+function calculateDayOfWeek(dateStr: string, weekStart: Date): number {
+  // Parse date in local timezone (not UTC) to avoid timezone conversion
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const eventDate = new Date(year, month - 1, day);
+
+  // Normalize both dates to midnight for accurate day comparison
+  eventDate.setHours(0, 0, 0, 0);
+  const normalizedWeekStart = new Date(weekStart);
+  normalizedWeekStart.setHours(0, 0, 0, 0);
+
   const msPerDay = 86400000;
-  const daysDiff = Math.floor((date.getTime() - weekStart.getTime()) / msPerDay);
+  const daysDiff = Math.round((eventDate.getTime() - normalizedWeekStart.getTime()) / msPerDay);
   return daysDiff;
 }
 
@@ -114,17 +123,11 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
 
   patches.forEach(patch => {
     if (patch.op === 'add_event' && patch.complete_event) {
-      // Add new event
-      console.log('🐛 [TIMEZONE DEBUG] Raw date string:', patch.complete_event.date);
-      const eventDate = new Date(patch.complete_event.date);
-      console.log('🐛 [TIMEZONE DEBUG] Parsed Date object:', eventDate.toISOString());
-      console.log('🐛 [TIMEZONE DEBUG] Local date:', eventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
-      console.log('🐛 [TIMEZONE DEBUG] Timezone offset (minutes):', eventDate.getTimezoneOffset());
-      console.log('🐛 [TIMEZONE DEBUG] Current week start:', currentWeekStart.toISOString());
+      // Add new event - parse date in local timezone to avoid timezone bugs
+      const [year, month, day] = patch.complete_event.date.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day);
 
-      const dayOfWeek = calculateDayOfWeek(eventDate, currentWeekStart);
-      console.log('🐛 [TIMEZONE DEBUG] Calculated dayOfWeek:', dayOfWeek, '(0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun)');
-
+      const dayOfWeek = calculateDayOfWeek(patch.complete_event.date, currentWeekStart);
       const startTime = parseTimeString(patch.complete_event.start_time, eventDate);
       const endTime = parseTimeString(patch.complete_event.end_time, eventDate);
 
@@ -171,8 +174,11 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
         const fromDate = patch.from_day?.scheduled_date;
 
         if (taskDate === fromDate) {
-          const eventDate = new Date(patch.complete_event.date);
-          const newDayOfWeek = calculateDayOfWeek(eventDate, currentWeekStart);
+          // Parse date in local timezone
+          const [year, month, day] = patch.complete_event.date.split('-').map(Number);
+          const eventDate = new Date(year, month - 1, day);
+
+          const newDayOfWeek = calculateDayOfWeek(patch.complete_event.date, currentWeekStart);
           const newStartTime = parseTimeString(patch.complete_event.start_time, eventDate);
           const newEndTime = parseTimeString(patch.complete_event.end_time, eventDate);
 

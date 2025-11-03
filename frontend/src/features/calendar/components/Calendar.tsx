@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useCalendarStore } from '../store/calendarStore';
 import { getWeekEnd, getWeekIdFromDate } from '../utils/dateHelpers';
 import CalendarHeader from './CalendarHeader';
@@ -70,11 +70,7 @@ export default function Calendar({
         isChatOpen={isChatOpen}
       />
 
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center text-[#fcecc9]">
-          Loading...
-        </div>
-      ) : (
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-[#fcecc9]" />}>
         <WeekView
           weekStart={currentWeekStart}
           tasks={tasks}
@@ -84,7 +80,7 @@ export default function Calendar({
           isVisible={isVisible}
           highlightedTaskIds={highlightedTaskIds}
         />
-      )}
+      </Suspense>
     </div>
   );
 }

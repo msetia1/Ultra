@@ -1,11 +1,32 @@
 /**
- * Get the start of the week (Monday) for a given date
+ * Parse a date string in YYYY-MM-DD format as local timezone (not UTC)
+ * This avoids timezone conversion issues with ISO date strings
+ */
+export function parseDateLocal(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day); // month is 0-indexed
+}
+
+/**
+ * Normalize a date to local midnight (00:00:00.000)
+ * Strips time component for consistent date comparisons
+ */
+export function normalizeToMidnight(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Get the start of the week (Monday) for a given date, normalized to midnight
  */
 export function getWeekStart(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  return new Date(d.setDate(diff));
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0); // Normalize to midnight
+  return d;
 }
 
 /**
