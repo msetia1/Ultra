@@ -221,27 +221,30 @@ export default function AnimatedTaskCard({
           className="font-inter font-medium text-[16px] tracking-[-0.3125px] text-gray-100 m-0 mb-[2px]"
           style={{
             color: 'rgb(243, 244, 246)',
-            paddingLeft: isSelected ? '12px' : '0'
+            paddingLeft: isSelected ? '12px' : '0',
+            textAlign: isSelected ? 'left' : 'center'
           }}
         >
           {task.title}
         </h3>
 
-        {/* Description */}
-        <p
-          className="font-inter font-normal text-[12px] leading-[16px] tracking-[-0.15px] text-gray-300 m-0 mb-[8px]"
-          style={{
-            color: 'rgb(209, 213, 219)',
-            paddingLeft: isSelected ? '12px' : '0'
-          }}
-        >
-          {task.description}
-        </p>
+        {/* Description - only show when expanded */}
+        {isSelected && (
+          <p
+            className="font-inter font-normal text-[12px] leading-[16px] tracking-[-0.15px] text-gray-300 m-0 mb-[8px]"
+            style={{
+              color: 'rgb(209, 213, 219)',
+              paddingLeft: '12px'
+            }}
+          >
+            {task.description}
+          </p>
+        )}
 
         {/* Start Time - only show when not expanded */}
         {!isSelected && (
           <p
-            className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300 mb-[8px]"
+            className="font-inter font-normal text-[16px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300 mb-[8px]"
             style={{ color: 'rgb(209, 213, 219)' }}
           >
             {formatTime(task.startTime)}
@@ -258,7 +261,7 @@ export default function AnimatedTaskCard({
         {/* End Time - only show when not expanded */}
         {!isSelected && (
           <p
-            className="font-inter font-normal text-[14px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300"
+            className="font-inter font-normal text-[16px] leading-[20px] tracking-[-0.1504px] text-center text-gray-300"
             style={{ color: 'rgb(209, 213, 219)' }}
           >
             {formatTime(task.endTime)}
