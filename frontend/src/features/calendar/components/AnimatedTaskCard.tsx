@@ -112,7 +112,7 @@ export default function AnimatedTaskCard({
         "group relative cursor-pointer rounded-[10px] overflow-hidden transition-all duration-300",
         "border border-white/10 bg-black",
         "flex flex-col",
-        `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
+        `absolute ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
         isSelected && "invisible"
       )}
       style={{
@@ -120,12 +120,9 @@ export default function AnimatedTaskCard({
         backgroundColor: 'black',
         borderColor: isHighlighted ? 'rgba(252, 236, 201, 0.6)' : 'rgba(255, 255, 255, 0.1)',
         transform: isHovered ? `${parentTransform} translateY(-2px)` : parentTransform,
-        boxShadow: isHighlighted
-          ? '0 0 20px rgba(252, 236, 201, 0.4), 0 0 40px rgba(252, 236, 201, 0.2)'
-          : isHovered
-            ? '0 2px 12px rgba(255, 255, 255, 0.03)'
-            : 'none',
-        animation: isHighlighted ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+        boxShadow: isHovered ? '0 2px 12px rgba(255, 255, 255, 0.03)' : 'none',
+        // Ensure width from style prop is respected, with fallback
+        width: style?.width || '90%',
       }}
     >
       {/* Radial gradient dot pattern background - visible on hover when not selected */}

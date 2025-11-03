@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UniqueLoading from '@/components/ui/morph-loading';
 import OnboardingLogo from './OnboardingLogo';
@@ -15,8 +15,20 @@ export default function LoadingScreen() {
   const { generateWeek, isComplete, error, events } = useWeekGeneration();
   const { setTasks } = useCalendarStore();
 
+  // Guard to prevent duplicate generation in React StrictMode (development)
+  const hasStartedGeneration = useRef(false);
+
   useEffect(() => {
     console.log('[LoadingScreen] Component mounted, starting week generation...');
+
+    // Prevent duplicate execution in StrictMode double-render
+    if (hasStartedGeneration.current) {
+      console.log('[LoadingScreen] ⚠️ Generation already started, skipping duplicate request');
+      return;
+    }
+
+    hasStartedGeneration.current = true;
+    console.log('[LoadingScreen] 🔒 Generation guard activated');
 
     let cancelled = false;
 

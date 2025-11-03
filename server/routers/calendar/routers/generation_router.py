@@ -5,8 +5,10 @@ SSE streaming endpoint for generating weekly calendar events using LLM.
 
 import json
 import logging
+import asyncio
 from typing import AsyncGenerator
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
 from fastapi import APIRouter, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
 
@@ -17,6 +19,40 @@ from ..services.week_generator import generate_week_events_streaming
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calendar", tags=["Calendar Generation"])
+
+# In-memory lock to prevent concurrent generation for same user+week
+# For production with multiple servers, use Redis or database-level locking
+_generation_locks: dict[str, asyncio.Lock] = {}
+_locks_lock = asyncio.Lock()  # Lock for accessing the locks dict
+
+
+@asynccontextmanager
+async def generation_lock(user_id: str, week_id: str):
+    """
+    Ensure only one generation happens per user+week at a time.
+
+    This prevents race conditions when duplicate requests arrive simultaneously.
+    """
+    lock_key = f"{user_id}:{week_id}"
+
+    # Get or create lock for this user+week combination
+    async with _locks_lock:
+        if lock_key not in _generation_locks:
+            _generation_locks[lock_key] = asyncio.Lock()
+        lock = _generation_locks[lock_key]
+
+    # Acquire the lock (wait if another request is already generating)
+    async with lock:
+        logger.info(f"[LOCK] Acquired generation lock for {lock_key}")
+        try:
+            yield
+        finally:
+            logger.info(f"[LOCK] Released generation lock for {lock_key}")
+
+            # Optional: Clean up old locks to prevent memory leak
+            async with _locks_lock:
+                if lock_key in _generation_locks and not _generation_locks[lock_key].locked():
+                    del _generation_locks[lock_key]
 
 
 def _parse_week_id(week_id: str) -> tuple[int, int]:
@@ -89,132 +125,136 @@ async def generate_week(
 
         logger.info(f"[GENERATION_ROUTER] Week range: {week_start.date()} to {week_end.date()}")
 
-        # Get database client
-        db_client = get_supabase()
+        # Acquire lock to prevent concurrent generation for same user+week
+        async with generation_lock(user_id, week_id):
+            # Get database client
+            db_client = get_supabase()
 
-        # DEMO MODE: Clear existing events for this week before generation
-        # This ensures a clean slate for each demo/hackathon test
-        try:
-            logger.info(f"[GENERATION_ROUTER] 🧹 Clearing existing events for week {week_id}...")
-            delete_response = (
-                db_client.table("calendar_events")
-                .delete()
-                .eq("user_id", user_id)
-                .gte("scheduled_date", week_start.date().isoformat())
-                .lte("scheduled_date", week_end.date().isoformat())
-                .execute()
-            )
-            deleted_count = len(delete_response.data) if delete_response.data else 0
-            logger.info(f"[GENERATION_ROUTER] ✅ Deleted {deleted_count} existing events")
-        except Exception as e:
-            logger.warning(f"[GENERATION_ROUTER] Failed to clear existing events: {e}")
-            # Continue anyway - not critical
-
-        # Load existing events for the week if needed
-        existing_events = request.existing_events
-        if existing_events is None:
-            # Fetch existing events from database
+            # DEMO MODE: Clear existing events for this week before generation
+            # This ensures a clean slate for each demo/hackathon test
             try:
-                response = (
+                logger.info(f"[GENERATION_ROUTER] 🧹 Clearing existing events for week {week_id}...")
+                delete_response = (
                     db_client.table("calendar_events")
-                    .select("*")
+                    .delete()
                     .eq("user_id", user_id)
                     .gte("scheduled_date", week_start.date().isoformat())
                     .lte("scheduled_date", week_end.date().isoformat())
-                    .order("scheduled_date", desc=False)
                     .execute()
                 )
-                existing_events = response.data
-                logger.info(f"[GENERATION_ROUTER] Loaded {len(existing_events)} existing events")
+                deleted_count = len(delete_response.data) if delete_response.data else 0
+                logger.info(f"[GENERATION_ROUTER] ✅ Deleted {deleted_count} existing events")
             except Exception as e:
-                logger.warning(f"[GENERATION_ROUTER] Failed to load existing events: {e}")
-                existing_events = []
+                logger.warning(f"[GENERATION_ROUTER] Failed to clear existing events: {e}")
+                # Continue anyway - not critical
 
-        async def event_generator() -> AsyncGenerator[str, None]:
-            """Generate SSE events from week generation."""
-            logger.info(f"[GENERATION_ROUTER] Starting SSE event generator")
-            event_count = 0
+            # Load existing events for the week if needed
+            existing_events = request.existing_events
+            if existing_events is None:
+                # Fetch existing events from database
+                try:
+                    response = (
+                        db_client.table("calendar_events")
+                        .select("*")
+                        .eq("user_id", user_id)
+                        .gte("scheduled_date", week_start.date().isoformat())
+                        .lte("scheduled_date", week_end.date().isoformat())
+                        .order("scheduled_date", desc=False)
+                        .execute()
+                    )
+                    existing_events = response.data
+                    logger.info(f"[GENERATION_ROUTER] Loaded {len(existing_events)} existing events")
+                except Exception as e:
+                    logger.warning(f"[GENERATION_ROUTER] Failed to load existing events: {e}")
+                    existing_events = []
 
-            try:
-                logger.info(f"[GENERATION_ROUTER] Beginning event streaming from generation service...")
+            async def event_generator() -> AsyncGenerator[str, None]:
+                """Generate SSE events from week generation."""
+                logger.info(f"[GENERATION_ROUTER] Starting SSE event generator")
+                event_count = 0
 
-                # Stream events from generation service
-                async for stream_event in generate_week_events_streaming(
-                    week_id=week_id,
-                    week_start=week_start,
-                    week_end=week_end,
-                    user_goals=request.user_goals,
-                    user_context=request.user_context,
-                    existing_events=existing_events,
-                ):
-                    event_count += 1
-                    event_type = stream_event["event_type"]
-                    logger.info(f"[GENERATION_ROUTER] Stream event #{event_count}: {event_type}")
+                try:
+                    logger.info(f"[GENERATION_ROUTER] Beginning event streaming from generation service...")
 
-                    if stream_event["event_type"] == "streaming_started":
-                        logger.info(f"[GENERATION_ROUTER] Streaming started: {stream_event.get('message')}")
+                    # Stream events from generation service
+                    async for stream_event in generate_week_events_streaming(
+                        week_id=week_id,
+                        week_start=week_start,
+                        week_end=week_end,
+                        user_id=user_id,
+                        supabase_client=db_client,
+                        user_goals=request.user_goals,
+                        user_context=request.user_context,
+                        existing_events=existing_events,
+                    ):
+                        event_count += 1
+                        event_type = stream_event["event_type"]
+                        logger.info(f"[GENERATION_ROUTER] Stream event #{event_count}: {event_type}")
 
-                    elif stream_event["event_type"] == "event_ready":
-                        # Store event in database
-                        event_data = stream_event["event_data"]
-                        logger.info(f"[GENERATION_ROUTER] Event #{stream_event.get('event_number')} ready: {event_data['title']}")
+                        if stream_event["event_type"] == "streaming_started":
+                            logger.info(f"[GENERATION_ROUTER] Streaming started: {stream_event.get('message')}")
 
-                        try:
-                            # Insert event into calendar_events table
-                            insert_data = {
-                                "user_id": user_id,
-                                "title": event_data["title"],
-                                "description": event_data.get("description", ""),
-                                "scheduled_date": event_data["scheduled_date"],
-                                "start_time": event_data["start_time"],
-                                "end_time": event_data["end_time"],
-                            }
+                        elif stream_event["event_type"] == "event_ready":
+                            # Store event in database
+                            event_data = stream_event["event_data"]
+                            logger.info(f"[GENERATION_ROUTER] Event #{stream_event.get('event_number')} ready: {event_data['title']}")
 
-                            logger.info(f"[GENERATION_ROUTER] Inserting event to DB: {insert_data['title']}")
-                            result = db_client.table("calendar_events").insert(insert_data).execute()
+                            try:
+                                # Insert event into calendar_events table
+                                insert_data = {
+                                    "user_id": user_id,
+                                    "title": event_data["title"],
+                                    "description": event_data.get("description", ""),
+                                    "scheduled_date": event_data["scheduled_date"],
+                                    "start_time": event_data["start_time"],
+                                    "end_time": event_data["end_time"],
+                                }
 
-                            if result.data and len(result.data) > 0:
-                                event_id = result.data[0]["id"]
-                                stream_event["event_id"] = event_id
-                                logger.info(
-                                    f"💾 [GENERATION_ROUTER] Stored event: {event_data['title']} -> {event_id}"
-                                )
-                            else:
-                                logger.error(f"❌ [GENERATION_ROUTER] Failed to store event: No data returned")
+                                logger.info(f"[GENERATION_ROUTER] Inserting event to DB: {insert_data['title']}")
+                                result = db_client.table("calendar_events").insert(insert_data).execute()
 
-                        except Exception as e:
-                            logger.error(f"❌ [GENERATION_ROUTER] Failed to store event in database: {e}")
-                            # Continue streaming even if storage fails
+                                if result.data and len(result.data) > 0:
+                                    event_id = result.data[0]["id"]
+                                    stream_event["event_id"] = event_id
+                                    logger.info(
+                                        f"💾 [GENERATION_ROUTER] Stored event: {event_data['title']} -> {event_id}"
+                                    )
+                                else:
+                                    logger.error(f"❌ [GENERATION_ROUTER] Failed to store event: No data returned")
 
-                    # Stream the event to client
-                    json_data = json.dumps(stream_event)
-                    logger.info(f"[GENERATION_ROUTER] 📤 Yielding SSE event: {event_type}")
-                    yield f"data: {json_data}\n\n"
+                            except Exception as e:
+                                logger.error(f"❌ [GENERATION_ROUTER] Failed to store event in database: {e}")
+                                # Continue streaming even if storage fails
 
-                    if stream_event["event_type"] == "generation_complete":
-                        logger.info(
-                            f"✅ Week generation completed: {stream_event.get('total_events', 0)} events"
-                        )
-                        logger.info(f"[GENERATION_ROUTER] 🏁 Breaking from event loop after generation_complete")
-                        break
+                        # Stream the event to client
+                        json_data = json.dumps(stream_event)
+                        logger.info(f"[GENERATION_ROUTER] 📤 Yielding SSE event: {event_type}")
+                        yield f"data: {json_data}\n\n"
 
-                    if stream_event["event_type"] == "generation_error":
-                        logger.error(f"❌ Generation error: {stream_event.get('error')}")
-                        break
+                        if stream_event["event_type"] == "generation_complete":
+                            logger.info(
+                                f"✅ Week generation completed: {stream_event.get('total_events', 0)} events"
+                            )
+                            logger.info(f"[GENERATION_ROUTER] 🏁 Breaking from event loop after generation_complete")
+                            break
 
-            except Exception as e:
-                logger.error(f"[GENERATION_ROUTER] Stream error: {e}", exc_info=True)
-                yield f"data: {json.dumps({'event_type': 'generation_error', 'error': str(e)})}\n\n"
+                        if stream_event["event_type"] == "generation_error":
+                            logger.error(f"❌ Generation error: {stream_event.get('error')}")
+                            break
 
-        return EventSourceResponse(
-            event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",  # Disable nginx buffering
-            },
-        )
+                except Exception as e:
+                    logger.error(f"[GENERATION_ROUTER] Stream error: {e}", exc_info=True)
+                    yield f"data: {json.dumps({'event_type': 'generation_error', 'error': str(e)})}\n\n"
+
+            return EventSourceResponse(
+                event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",  # Disable nginx buffering
+                },
+            )
 
     except Exception as e:
         logger.error(f"[GENERATION_ROUTER] Failed to initialize generation: {e}", exc_info=True)

@@ -9,9 +9,12 @@ import logging
 from typing import AsyncGenerator, Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from openai import AsyncOpenAI
+from supabase import Client
 
 from ..models.generation import WeekEventsGeneration, CalendarEventGeneration
 from .event_streaming_parser import EventStreamingParser
+from .user_context_aggregator import UserContextAggregator
+from .overlap_validator import OverlapValidator
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,8 @@ async def generate_week_events_streaming(
     week_id: str,
     week_start: datetime,
     week_end: datetime,
+    user_id: str,
+    supabase_client: Client,
     user_goals: Optional[str] = None,
     user_context: Optional[Dict[str, Any]] = None,
     existing_events: Optional[List[Dict[str, Any]]] = None,
@@ -31,6 +36,8 @@ async def generate_week_events_streaming(
         week_id: Week identifier (e.g., "2025-W09")
         week_start: Start date of the week
         week_end: End date of the week
+        user_id: User's UUID for fetching integration data
+        supabase_client: Supabase client for database queries
         user_goals: Optional user goals or focus areas
         user_context: Optional additional context
         existing_events: Optional list of existing events to consider
@@ -40,6 +47,23 @@ async def generate_week_events_streaming(
     """
     logger.info(f"🚀 Starting week event generation for {week_id}")
     logger.info(f"📅 Week range: {week_start.date()} to {week_end.date()}")
+
+    # Aggregate user data from GitHub, Whoop, and Linear integrations
+    aggregator = UserContextAggregator(supabase_client)
+    integration_context = aggregator.aggregate_week_context(
+        user_id=user_id,
+        week_start=week_start.date(),
+        week_end=week_end.date()
+    )
+    integration_context_text = aggregator.format_context_for_prompt(integration_context)
+
+    logger.info(f"📊 Integration context aggregated: {len(integration_context_text)} characters")
+    if integration_context["integration_status"].get("has_github"):
+        logger.info("  ✓ GitHub data included")
+    if integration_context["integration_status"].get("has_whoop"):
+        logger.info("  ✓ Whoop data included")
+    if integration_context["integration_status"].get("has_linear"):
+        logger.info("  ✓ Linear data included")
 
     # Build user context string
     goals_text = user_goals or "general productivity and work-life balance"
@@ -58,7 +82,7 @@ async def generate_week_events_streaming(
             )
         existing_events_text = f"\n\nEXISTING EVENTS TO CONSIDER:\n" + "\n".join(events_list)
 
-    # Create comprehensive system prompt
+    # Create comprehensive system prompt with integration context
     system_prompt = f"""You are an AI calendar assistant that generates smart, balanced weekly schedules.
 
 TASK: Create a well-structured weekly calendar with events that help the user achieve their goals while maintaining work-life balance.
@@ -73,29 +97,36 @@ WEEK TO SCHEDULE:
 USER GOALS/FOCUS:
 {goals_text}{context_text}{existing_events_text}
 
+{integration_context_text}
+
 INSTRUCTIONS:
 
-1. RESEARCH PHASE:
-   Use web search to research:
-   - Best practices for weekly scheduling and time management
-   - Optimal times for different types of activities (meetings, deep work, exercise, etc.)
-   - Work-life balance strategies
-   - Time blocking techniques
-   - Productivity patterns based on the user's goals
+1. USE THE INTEGRATION DATA ABOVE:
+   - **GitHub activity**: Schedule deep work blocks for active projects during historically productive times
+   - **Whoop recovery scores**: Adjust daily schedule intensity based on recovery levels
+     * High recovery (>67%): Full workload, meetings, intense workouts OK
+     * Moderate recovery (34-66%): Balanced schedule, avoid early meetings
+     * Low recovery (<34%): Light schedule, prioritize rest and recovery
+   - **Whoop sleep data**: Respect sleep patterns when scheduling morning activities
+   - **Whoop workouts**: Pre-block exercise at typical workout times to maintain consistency
+   - **Linear tasks**: Create focused time blocks for high-priority tasks and upcoming deadlines
+   - **Linear deadlines**: Work backward from due dates to schedule preparation time
 
 2. EVENT GENERATION PHASE:
    Create a balanced weekly schedule with:
 
    a) WORK/PRODUCTIVITY BLOCKS:
-      - Deep work sessions (2-4 hours of focused time)
+      - Deep work sessions (2-4 hours of focused time) for active GitHub projects
+      - Time blocks for Linear tasks based on priority and deadlines
       - Meeting blocks (but avoid meeting overload)
       - Administrative/email time
       - Planning and review sessions
 
    b) PERSONAL WELLNESS:
-      - Exercise/movement sessions (3-5 per week)
+      - Exercise/movement sessions at typical workout times (from Whoop data)
       - Meal times (breakfast, lunch, dinner)
-      - Breaks and rest periods
+      - Breaks and rest periods, especially on low recovery days
+      - Extra recovery time when Whoop data shows need
 
    c) LIFE BALANCE:
       - Hobbies or creative time
@@ -104,35 +135,224 @@ INSTRUCTIONS:
       - Family/relationship time
 
    d) STRUCTURE:
-      - Morning routines
+      - Morning routines (adjusted based on sleep data)
       - Evening wind-down
       - Weekend activities
 
-3. SCHEDULING RULES (STRICT):
+3. ⚠️ SCHEDULING RULES - ABSOLUTELY CRITICAL - NO EXCEPTIONS ⚠️
+
+   **RULE #0: EVENT COUNT LIMITS**
+   ═══════════════════════════════════════════════════════════
+   - **MAXIMUM 4 events per day** - DO NOT exceed this limit
+   - **MINIMUM 1 event per day** - EVERY day must have at least one event
+
+   Before creating ANY event, count how many events you have already created for that specific day.
+   If the day already has 4 events, DO NOT add another event to that day.
+   Move to a different day instead.
+
+   Ensure ALL 7 days get at least 1 event before adding more events to any single day.
+
+   Track your count as you generate:
+   - Monday: [0/4] → [1/4] → [2/4] → [3/4] → [4/4] STOP
+   - Tuesday: [0/4] → [1/4] → [2/4] → [3/4] → [4/4] STOP
+   - And so on for all 7 days...
+
+   **RULE #1: ZERO OVERLAPS - THIS IS NON-NEGOTIABLE**
+   ═══════════════════════════════════════════════════════════
+   FOR ANY GIVEN DAY, EVENTS MUST NEVER OVERLAP IN TIME.
+   EVERY EVENT MUST BE COMPLETELY FINISHED BEFORE THE NEXT ONE STARTS.
+
+   ❌ OVERLAPPING IS ABSOLUTELY FORBIDDEN ❌
+
+   How to ensure NO overlaps:
+
+   Step 1: Keep a mental list of ALL events you've already created for EACH day
+   Step 2: Before creating a new event, CHECK the list for that specific day
+   Step 3: Find a time slot that comes AFTER all existing events (or BEFORE all of them)
+   Step 4: Add AT LEAST 15 minutes buffer between the end of one event and start of next
+
+   VALID EXAMPLE for Monday (Max 4 events):
+   ✓ Event 1: 09:00-11:00 (Deep Work Session - GitHub project)
+   ✓ Event 2: 11:30-12:30 (Team Standup) ← Starts 30 min after Event 1 ends
+   ✓ Event 3: 13:00-14:00 (Lunch Break) ← Starts 30 min after Event 2 ends
+   ✓ Event 4: 17:00-18:30 (Exercise & Recovery) ← Starts 3 hours after Event 3 ends
+
+   That's it for Monday! 4 events max, no overlaps, good spacing.
+
+   INVALID EXAMPLE (DO NOT DO THIS):
+   ❌ Event 1: 09:00-12:00 (Deep Work)
+   ❌ Event 2: 10:00-11:00 (Meeting) ← WRONG! Overlaps with Event 1
+   ❌ Event 3: 11:30-12:30 (Exercise) ← WRONG! Overlaps with Event 1
+   ❌ Event 4: 12:00-13:00 (Lunch) ← WRONG! Overlaps with Events 1 and 3
+   ❌ Event 5: 14:00-15:00 (Review) ← WRONG! 5 events in one day (max is 4)
+
+   **WHY THIS MATTERS:**
+   You can only do ONE thing at a time. It is physically impossible to be in a meeting
+   while also doing deep work. All events must be sequential, never concurrent.
+
+   **DATE VALIDATION:**
    - All events MUST have scheduled_date within [{week_start.strftime('%Y-%m-%d')}, {week_end.strftime('%Y-%m-%d')}]
-   - Use realistic times (avoid scheduling too early or too late)
-   - Consider existing events and avoid conflicts
-   - Balance busy days with lighter days
-   - Include buffer time between events
+   - Use realistic times (not before 06:00, not after 23:00)
+
+   **BUFFER REQUIREMENTS:**
+   - MINIMUM 15 minutes between consecutive events on same day
+   - More buffer is better (30-60 minutes for transitions between different types of activities)
+
+   **OTHER RULES:**
+   - Balance busy days with lighter days based on recovery scores
    - Respect typical work hours (9am-6pm for work, flexible for personal)
+   - Schedule demanding work during high-energy periods
+   - Add buffer time before Linear task deadlines
 
 4. EVENT DETAILS:
    Each event must include:
    - title: Clear, descriptive title
-   - description: Purpose and any relevant details (2-3 sentences)
+   - description: **RICH, COMPREHENSIVE DESCRIPTION (4-6 sentences)** - See detailed guidance below
    - scheduled_date: Date in YYYY-MM-DD format
    - start_time: Time in HH:MM format (24-hour)
    - end_time: Time in HH:MM format (24-hour)
    - event_type: Type of event (e.g., "work", "exercise", "personal", "meal", "social")
    - priority: "high", "medium", or "low"
 
-5. QUALITY STANDARDS:
-   - Create 15-25 events for the week (not too sparse, not overwhelming)
-   - Ensure variety in event types
-   - Include realistic time durations
+   **DESCRIPTION QUALITY GUIDELINES:**
+   ═══════════════════════════════════════════════════════════════════════════
+   Descriptions are CRITICAL for user context. They should be RICH, INSIGHTFUL narratives
+   that explain WHY this event is scheduled at this specific time, using patterns and context
+   from the integration data above.
+
+   **Core Principles for Descriptions:**
+
+   1. **EXPLAIN THE "WHY"**: Don't just state what the event is - explain WHY it's scheduled
+      at this time and date. Reference the reasoning behind the scheduling decision.
+
+   2. **REFERENCE PATTERNS, NOT RAW DATA**: Instead of "Your recovery score is 78%", say:
+      - "Based on your high recovery score today, you have excellent energy for intense work"
+      - "Historically you're most productive in morning hours based on your commit patterns"
+      - "Scheduled at your typical workout time to maintain consistency with your routine"
+
+   3. **COMBINE MULTIPLE DATA SOURCES**: Weave together insights from GitHub, Whoop, and Linear:
+      - GitHub activity patterns + Whoop recovery scores + timing
+      - Linear task priorities + GitHub project context + energy levels
+      - Whoop workout patterns + recovery trends + schedule balance
+
+   4. **FOCUS ON INSIGHTS OVER SPECIFICS**: Avoid technical details users won't recognize:
+      - ❌ BAD: "Complete task ENG-456 in Linear with ID abc-123-xyz"
+      - ✅ GOOD: "Focus time for high-priority API integration task due in 3 days"
+      - ❌ BAD: "Work on repo github.com/user/project-name-12345"
+      - ✅ GOOD: "Continue work on the calendar generation backend you've been iterating on"
+
+   5. **KEEP IT CONVERSATIONAL**: Write naturally, as if explaining the schedule to the user:
+      - Use "you/your" language
+      - Be specific but accessible
+      - Highlight relevant context that matters to the user
+
+   6. **LENGTH**: 4-6 sentences that provide comprehensive context without overwhelming detail
+
+   **DESCRIPTION EXAMPLES BY EVENT TYPE:**
+
+   **WORK/DEEP WORK EVENTS:**
+   Example 1: "Deep work block scheduled for 9 AM when your recovery score indicates peak
+   energy levels. Based on your GitHub activity, you've been actively committing to the
+   backend services project with 15+ commits this week. Historically, your commit patterns
+   show you're most productive during morning hours. This 3-hour block protects focused
+   time for the calendar generation improvements you've been iterating on. No meetings
+   scheduled during this window to maintain flow state."
+
+   Example 2: "Focused coding session aligned with your recent work on the authentication
+   system based on commit history. Scheduled mid-morning when you typically show strong
+   productivity patterns. Your current recovery level supports sustained concentration work.
+   This block leaves buffer time before afternoon meetings and aligns with your natural
+   work rhythm. Project momentum suggests this is a good time to push forward on pending
+   features."
+
+   **EXERCISE/WELLNESS EVENTS:**
+   Example 1: "Evening cardio session scheduled at 5 PM, which aligns with your typical
+   workout time based on Whoop activity data. Your current recovery level of 82% supports
+   moderate to high-intensity exercise. Historically, you maintain a consistent 5x/week
+   running cadence, and this session helps preserve that pattern. Evening workouts fit well
+   with your schedule and support good sleep quality. Post-workout recovery window extends
+   into your evening wind-down routine."
+
+   Example 2: "Morning yoga and mobility work scheduled during a moderate recovery day to
+   support active recovery. Based on your Whoop sleep data, you typically wake naturally
+   around this time. Light movement in the morning helps prepare you for the workday ahead
+   without overtaxing your system. This session is positioned before your deep work block
+   to energize and focus your mind. Recovery-focused exercise is appropriate given today's
+   moderate HRV readings."
+
+   **TASK/PROJECT EVENTS:**
+   Example 1: "Dedicated time for high-priority infrastructure task due in 3 days. Scheduled
+   during your peak productivity hours with strong recovery metrics supporting complex problem-
+   solving work. This task connects to your recent backend development work visible in GitHub
+   activity. The 2-hour block provides enough time for meaningful progress without context-
+   switching fatigue. Positioned with buffer time before and after to avoid scheduling conflicts."
+
+   Example 2: "Focus block for urgent API integration work approaching deadline. Based on task
+   complexity and your coding patterns, a 3-hour session will allow you to complete core
+   implementation. Scheduled when your energy levels are high and calendar is clear of meetings.
+   This work builds on the services layer you've been developing recently. Strategic timing
+   ensures you can review and test before end of week deadline."
+
+   **MEAL/BREAK EVENTS:**
+   Example: "Lunch break positioned between morning deep work and afternoon meetings. Scheduled
+   during natural mid-day energy dip to align with circadian rhythm. This break provides recovery
+   time after intensive morning productivity session. One-hour duration allows for proper meal
+   and mental reset before afternoon activities. Strategic placement maintains sustainable daily
+   work rhythm."
+
+   **SOCIAL/PERSONAL EVENTS:**
+   Example: "Personal time scheduled on a lighter day to maintain work-life balance. Based on
+   your weekly patterns, this provides needed variety after several intensive work days. Current
+   recovery metrics support social engagement without overcommitting energy. Weekend positioning
+   allows for relaxation without impacting weekday productivity blocks. This balance helps
+   sustain long-term performance and wellness."
+
+   **KEY REMINDERS:**
+   - Every description should answer: "Why is this event scheduled at THIS specific time?"
+   - Reference user patterns: "Based on your...", "Historically you...", "Your typical..."
+   - Connect to integration data: GitHub activity, Whoop metrics, Linear priorities, timing patterns
+   - Use conversational, accessible language - avoid technical IDs or overwhelming specifics
+   - Aim for 4-6 sentences that feel informative and personalized, not generic
+
+5. EVENT COUNT AND QUALITY STANDARDS:
+
+   **EVENT COUNT REQUIREMENTS**
+   ═══════════════════════════════════════════════════════════
+   - **MAXIMUM 4 events per day** - NO EXCEPTIONS
+   - **MINIMUM 1 event per day** - EVERY day must be covered
+   - **Total for the week: 7-28 events** (1-4 events/day × 7 days)
+   - Focus on the MOST IMPORTANT activities for each day
+   - Longer, meaningful events are better than many short ones
+
+   **EVENT DISTRIBUTION:**
+   - Spread events across all 7 days of the week
+   - **First priority**: Ensure every day has at least 1 event
+   - **Second priority**: Add additional events (up to 4) to days that need more structure
+   - Weekends can have 1-2 events, weekdays typically 2-4 events
+
+   **QUALITY OVER QUANTITY:**
+   - Each event should be significant and purposeful
+   - Ensure variety in event types across the week
+   - Include realistic time durations (1-4 hours typically)
    - Add helpful descriptions that explain the purpose
    - Consider energy levels throughout the day
    - Balance structure with flexibility
+
+6. FINAL VALIDATION BEFORE RETURNING:
+   ⚠️ BEFORE YOU RETURN THE JSON, DO THIS FINAL CHECK:
+
+   For EACH day in the week:
+   a) Count events for that day - MUST BE between 1 and 4 (inclusive)
+   b) List all events for that day sorted by start_time
+   c) Verify each event ENDS before the next event STARTS
+   d) Verify at least 15 minutes between consecutive events
+   e) If ANY day has 0 events, ADD at least one meaningful event
+   f) If ANY day has >4 events, REMOVE the least important ones
+   g) If ANY overlap found, FIX IT by adjusting times or removing events
+
+   ONLY return the JSON after confirming:
+   - ZERO overlaps exist
+   - EVERY day has 1-4 events (no day is empty, no day exceeds 4)
 
 STRICT JSON OUTPUT:
 Return a single JSON object exactly of the form:
@@ -141,13 +361,15 @@ with each event conforming to the structure above. No prose before or after the 
 """
 
     try:
-        # Initialize OpenRouter client
+        # Initialize OpenRouter client and validator
         client = AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=os.getenv("OPENROUTER_API_KEY"),
             timeout=None
         )
         parser = EventStreamingParser()
+        validator = OverlapValidator(min_buffer_minutes=15)
+        emitted_events = []  # Track emitted events for incremental validation
 
         logger.info(f"🚀 Starting LLM call with web search capability")
         logger.info(f"📝 System prompt: {len(system_prompt)} characters")
@@ -223,12 +445,38 @@ with each event conforming to the structure above. No prose before or after the 
                                     logger.error(f"Failed to parse event {event_index}: {e}")
                                     continue
 
-                                logger.info(f"🔥 Event {event_count} ready: {event.title}")
+                                # Validate event against previously emitted events on same day
+                                event_dict = event.model_dump()
+                                same_day_events = [
+                                    e for e in emitted_events
+                                    if e.get("scheduled_date") == event_dict.get("scheduled_date")
+                                ]
+
+                                if same_day_events:
+                                    # Validate this event against events from same day
+                                    events_to_validate = same_day_events + [event_dict]
+                                    validated_events, stats = validator.validate_and_fix_events(
+                                        events_to_validate,
+                                        max_events_per_day=4
+                                    )
+
+                                    # Get the validated version of the current event (last one)
+                                    event_dict = validated_events[-1]
+
+                                    if stats.get("events_fixed", 0) > 0:
+                                        logger.info(f"🔧 Event {event_count} adjusted to avoid overlap")
+                                    if stats.get("events_removed", 0) > 0:
+                                        logger.info(f"🗑️ Event {event_count}: {stats['events_removed']} events removed (max 3/day)")
+
+                                # Track this event for future validations
+                                emitted_events.append(event_dict)
+
+                                logger.info(f"🔥 Event {event_count} ready: {event_dict['title']}")
 
                                 yield {
                                     "event_type": "event_ready",
                                     "event_number": event_count,
-                                    "event_data": event.model_dump(),
+                                    "event_data": event_dict,
                                     "is_first_event": event_count == 1,
                                     "progress": 10 + min(event_count * 3, 80)
                                 }
@@ -248,10 +496,37 @@ with each event conforming to the structure above. No prose before or after the 
                                     try:
                                         event = CalendarEventGeneration(**event_data)
                                         event_count += 1
+
+                                        # Validate event against previously emitted events on same day
+                                        event_dict = event.model_dump()
+                                        same_day_events = [
+                                            e for e in emitted_events
+                                            if e.get("scheduled_date") == event_dict.get("scheduled_date")
+                                        ]
+
+                                        if same_day_events:
+                                            # Validate this event against events from same day
+                                            events_to_validate = same_day_events + [event_dict]
+                                            validated_events, stats = validator.validate_and_fix_events(
+                                                events_to_validate,
+                                                max_events_per_day=4
+                                            )
+
+                                            # Get the validated version of the current event (last one)
+                                            event_dict = validated_events[-1]
+
+                                            if stats.get("events_fixed", 0) > 0:
+                                                logger.info(f"🔧 Final event {event_count} adjusted to avoid overlap")
+                                            if stats.get("events_removed", 0) > 0:
+                                                logger.info(f"🗑️ Final event {event_count}: {stats['events_removed']} events removed (max 3/day)")
+
+                                        # Track this event for future validations
+                                        emitted_events.append(event_dict)
+
                                         yield {
                                             "event_type": "event_ready",
                                             "event_number": event_count,
-                                            "event_data": event.model_dump(),
+                                            "event_data": event_dict,
                                             "is_first_event": event_count == 1,
                                             "progress": 10 + min(event_count * 3, 80)
                                         }
