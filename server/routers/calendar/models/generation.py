@@ -1,11 +1,13 @@
 """Pydantic models for week generation."""
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class CalendarEventGeneration(BaseModel):
     """Model for a generated calendar event."""
+    model_config = ConfigDict(extra='forbid')
+
     title: str = Field(description="Event title")
     description: str = Field(default="", description="Event description/details")
     scheduled_date: str = Field(description="Event date in YYYY-MM-DD format")
@@ -19,6 +21,8 @@ class CalendarEventGeneration(BaseModel):
 
 class WeekEventsGeneration(BaseModel):
     """Container for all generated events in a week."""
+    model_config = ConfigDict(extra='forbid')
+
     events: List[CalendarEventGeneration] = Field(description="List of generated calendar events for the week")
 
 

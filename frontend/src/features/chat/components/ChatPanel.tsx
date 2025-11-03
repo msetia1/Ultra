@@ -3,6 +3,7 @@ import { useChatStore } from '../store/chatStore';
 import { useCalendarStore } from '@/features/calendar/store/calendarStore';
 import { X, Plus } from 'lucide-react';
 import { useCalendarChat } from '@/features/calendar/hooks/useCalendarChat';
+import { getWeekIdFromDate } from '@/features/calendar/utils/dateHelpers';
 import ChatInput from './ChatInput';
 import MessageList from './MessageList';
 
@@ -18,27 +19,20 @@ export default function ChatPanel() {
   } = useChatStore();
   const [input, setInput] = useState('');
 
-  // Get current week_id (you may want to pass this as a prop)
-  const getCurrentWeekId = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const weekNum = getWeekNumber(now);
-    return `${year}-W${String(weekNum).padStart(2, '0')}`;
-  };
-
-  const weekId = getCurrentWeekId();
+  // Get current week_id using shared helper
+  const weekId = getWeekIdFromDate(new Date());
 
   const {
     sendMessage,
     isStreaming,
-    streamedMessage,
     proposedPatches,
     conversationId,
     error,
     clearPatches,
+    clearConversation,
   } = useCalendarChat(weekId);
 
-  const { setProposedPatches, hasPendingChanges, revertChanges } = useCalendarStore();
+  const { setProposedPatches, hasPendingChanges, revertChanges, clearProposedPatches } = useCalendarStore();
 
   console.log('[ChatPanel] Render - hasPendingChanges:', hasPendingChanges);
 
@@ -62,13 +56,9 @@ export default function ChatPanel() {
     console.log('[ChatPanel] hasPendingChanges changed to:', hasPendingChanges);
   }, [hasPendingChanges]);
 
-  // Sync backend AI response to Zustand store when streaming completes
-  // Auto-accept patches and call backend API (but keep revert button visible)
+  // Auto-accept patches when streaming completes
   useEffect(() => {
-    if (!isStreaming && streamedMessage && proposedPatches.length > 0) {
-      useChatStore.getState().addMessage(streamedMessage, 'ai');
-
-      // Auto-accept patches by calling backend API
+    if (!isStreaming && proposedPatches.length > 0) {
       (async () => {
         try {
           const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -93,7 +83,7 @@ export default function ChatPanel() {
         }
       })();
     }
-  }, [isStreaming, streamedMessage, proposedPatches, conversationId, weekId]);
+  }, [isStreaming, proposedPatches, conversationId, weekId]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -113,6 +103,15 @@ export default function ChatPanel() {
 
   const handleInputChange = (newValue: string) => {
     setInput(newValue);
+  };
+
+  const handleClearConversation = () => {
+    // Clear chat store messages
+    clearMessages();
+    // Clear calendar chat hook state (including conversation ID)
+    clearConversation();
+    // Clear calendar pending changes
+    clearProposedPatches();
   };
 
   if (!isOpen) {
@@ -144,7 +143,7 @@ export default function ChatPanel() {
       >
         <div className="flex items-center justify-between">
           <button
-            onClick={clearMessages}
+            onClick={handleClearConversation}
             className="bg-transparent border-none p-0 outline-none text-[#888888] hover:text-[#fcecc9] transition-colors cursor-pointer"
             style={{
               paddingTop: '16px',
@@ -171,7 +170,7 @@ export default function ChatPanel() {
       {/* Chat Messages */}
       <MessageList
         messages={messages}
-        streamingMessage={streamedMessage || streamingMessage}
+        streamingMessage={streamingMessage}
         isStreaming={isStreaming || isStreamingStore}
         error={error}
         showRevertButton={hasPendingChanges}
@@ -202,13 +201,4 @@ export default function ChatPanel() {
       </div>
     </div>
   );
-}
-
-// Helper function to get ISO week number
-function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }

@@ -92,7 +92,18 @@ export async function* streamWeekGeneration(
             console.log('[generationApi]   → 🎉 Complete! Total:', data.total_events);
           }
 
+          console.log('[generationApi] ⏰ About to yield event at', new Date().toISOString());
           yield data;
+          console.log('[generationApi] ⏰ After yielding event at', new Date().toISOString());
+
+          // Stop reading immediately after terminal events
+          if (data.event_type === 'generation_complete' || data.event_type === 'generation_error') {
+            console.log('[generationApi] 🏁 Terminal event received at', new Date().toISOString());
+            console.log('[generationApi] 🏁 Calling reader.cancel()...');
+            reader.cancel();
+            console.log('[generationApi] 🏁 Returning from generator at', new Date().toISOString());
+            return;
+          }
         } catch (e) {
           console.error('[generationApi] ❌ Parse error:', e);
           console.error('[generationApi] Failed event string:', event.substring(0, 200));

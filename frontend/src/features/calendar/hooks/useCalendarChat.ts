@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useChatStore } from '@/features/chat/store/chatStore';
 
 export interface CalendarPatch {
   patch_id: string;
@@ -21,7 +22,6 @@ interface SSEEvent {
 
 export function useCalendarChat(weekId: string) {
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamedMessage, setStreamedMessage] = useState('');
   const [proposedPatches, setProposedPatches] = useState<CalendarPatch[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +29,9 @@ export function useCalendarChat(weekId: string) {
   const sendMessage = useCallback(async (message: string) => {
     try {
       setIsStreaming(true);
-      setStreamedMessage('');
+      // Clear previous state for new conversation turn
+      useChatStore.getState().setStreaming(true);
+      useChatStore.getState().updateStreamingMessage(''); // Clear previous streaming message
       setProposedPatches([]);
       setError(null);
 
@@ -77,8 +79,8 @@ export function useCalendarChat(weekId: string) {
             const data: SSEEvent = JSON.parse(event.slice(6));
 
             if (data.type === 'message_delta') {
-              // Append streaming text
-              setStreamedMessage(prev => prev + (data.delta || ''));
+              // Append streaming text to Zustand store
+              useChatStore.getState().updateStreamingMessage(data.delta || '');
 
             } else if (data.type === 'patch_proposed') {
               // Add patch to preview list
@@ -92,9 +94,14 @@ export function useCalendarChat(weekId: string) {
               }
 
             } else if (data.type === 'final') {
-              // Complete response
+              // Complete response - add AI message from final event
               console.log('[useCalendarChat] Received final event with', (data.patches || []).length, 'patches');
-              setStreamedMessage(data.message || '');
+
+              // Add the AI message directly from the final event
+              if (data.message) {
+                useChatStore.getState().addMessage(data.message, 'ai');
+              }
+
               setProposedPatches(data.patches || []);
               console.log('[useCalendarChat] Set proposedPatches to:', data.patches);
               if (data.conversation_id) {
@@ -116,22 +123,30 @@ export function useCalendarChat(weekId: string) {
       setError(error instanceof Error ? error.message : 'Failed to send message');
     } finally {
       setIsStreaming(false);
+      useChatStore.getState().setStreaming(false);
     }
   }, [weekId, conversationId]);
 
   const clearPatches = useCallback(() => {
     setProposedPatches([]);
-    setStreamedMessage('');
     setError(null);
+  }, []);
+
+  const clearConversation = useCallback(() => {
+    setProposedPatches([]);
+    setConversationId(null);
+    setError(null);
+    setIsStreaming(false);
+    // Note: Message clearing is handled by chatStore.clearMessages()
   }, []);
 
   return {
     sendMessage,
     isStreaming,
-    streamedMessage,
     proposedPatches,
     conversationId,
     error,
     clearPatches,
+    clearConversation,
   };
 }

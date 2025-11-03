@@ -2,23 +2,14 @@
  * Helper functions for week generation
  */
 
+import { getWeekIdFromDate } from './dateHelpers';
+
 /**
  * Get current week ID in format expected by backend API
  * Example: "2025-W09"
  */
 export function getCurrentWeekId(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-
-  // Calculate ISO week number
-  // ISO week 1 is the first week with Thursday in it
-  const jan4 = new Date(year, 0, 4);
-  const daysSinceJan4 = Math.floor(
-    (now.getTime() - jan4.getTime()) / 86400000
-  );
-  const weekNum = Math.floor(daysSinceJan4 / 7) + 1;
-
-  return `${year}-W${weekNum.toString().padStart(2, '0')}`;
+  return getWeekIdFromDate(new Date());
 }
 
 /**

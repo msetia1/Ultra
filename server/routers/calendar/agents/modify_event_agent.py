@@ -37,23 +37,73 @@ YOUR TASK:
 1. Identify which event the user wants to modify
 2. Determine what fields need to change (title, description, start_time, end_time)
 3. Create a first-person instruction describing the change
-4. Build a lazy_edit object with only the changed fields
+4. Build a lazy_edit object with ONLY the changed fields
 5. Call emit_modify_event_patch with the Morph-formatted data
 
-IMPORTANT:
+LAZY EDIT FORMAT (CRITICAL - READ CAREFULLY):
+═══════════════════════════════════════════════════════════
+
+The Morph API requires valid JSON structure. Use valid JSON only, no comment markers or placeholders.
+
+✅ VALID FORMAT - Show only changed fields in valid JSON:
+
+Example 1 - Change event time:
+{{
+  "start_time": "15:00",
+  "end_time": "16:00"
+}}
+
+Example 2 - Rename event:
+{{
+  "title": "Daily Sync"
+}}
+
+Example 3 - Multiple field changes:
+{{
+  "title": "Team Standup",
+  "start_time": "09:00",
+  "end_time": "09:30",
+  "description": "Quick daily sync with the team"
+}}
+
+❌ INVALID FORMAT - Do NOT include comment markers:
+{{
+  "title": "Daily Sync",
+  // ... existing fields ...  ← NEVER DO THIS
+}}
+
+BEST PRACTICES:
+- Include ONLY the fields you're changing
+- Keep the lazy edit focused and minimal
+- Valid JSON only - no comments, no markers, no placeholders
 - Use 24-hour time format for times (e.g., "15:00" not "3pm")
-- Only include changed fields in lazy_edit
-- Instruction should be descriptive (e.g., "I'm extending the meeting by 30 minutes")
 - If modifying duration, update both start_time and end_time
 
-EXAMPLES:
-- User: "Change the 2pm meeting to 3pm"
-  instruction: "I'm moving the meeting start time from 14:00 to 15:00"
-  lazy_edit: {{"start_time": "15:00", "end_time": "16:00"}}
+TOOL CALL EXAMPLES:
 
-- User: "Rename the standup to 'Daily Sync'"
-  instruction: "I'm renaming the event from 'Morning Standup' to 'Daily Sync'"
-  lazy_edit: {{"title": "Daily Sync"}}
+User: "Change the 2pm meeting to 3pm"
+→ Call: emit_modify_event_patch(
+    event_id="<event-uuid>",
+    date="2025-02-28",
+    instruction="I'm moving the meeting start time from 14:00 to 15:00",
+    lazy_edit='{{"start_time": "15:00", "end_time": "16:00"}}'
+  )
+
+User: "Rename the standup to 'Daily Sync'"
+→ Call: emit_modify_event_patch(
+    event_id="<event-uuid>",
+    date="2025-02-28",
+    instruction="I'm renaming the event from 'Morning Standup' to 'Daily Sync'",
+    lazy_edit='{{"title": "Daily Sync"}}'
+  )
+
+User: "Make the lunch break 1.5 hours instead of 1 hour"
+→ Call: emit_modify_event_patch(
+    event_id="<event-uuid>",
+    date="2025-02-28",
+    instruction="I'm extending the lunch break from 1 hour to 1.5 hours",
+    lazy_edit='{{"end_time": "13:30"}}'
+  )
 
 CONVERSATION HISTORY:
 {conversation_history}"""
@@ -61,7 +111,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="ModifyEventAgent",
         instructions=instructions,
-        model="anthropic/claude-3.5-sonnet",
+        model="openai/gpt-4.1",
         tools=[emit_modify_event_patch],
     )
 

@@ -143,18 +143,18 @@ INSTRUCTIONS:
 
    **RULE #0: EVENT COUNT LIMITS**
    ═══════════════════════════════════════════════════════════
-   - **MAXIMUM 4 events per day** - DO NOT exceed this limit
-   - **MINIMUM 2 events per day** - EVERY day must have at least two events
+   - **MAXIMUM 10 events per day** - DO NOT exceed this limit
+   - **MINIMUM 5 events per day** - EVERY day must have at least five events
 
    Before creating ANY event, count how many events you have already created for that specific day.
-   If the day already has 4 events, DO NOT add another event to that day.
+   If the day already has 10 events, DO NOT add another event to that day.
    Move to a different day instead.
 
-   Ensure ALL 7 days get at least 2 events before adding more events to any single day.
+   Ensure ALL 7 days get at least 5 events before adding more events to any single day.
 
    Track your count as you generate:
-   - Monday: [0/4] → [1/4] → [2/4] → [3/4] → [4/4] STOP
-   - Tuesday: [0/4] → [1/4] → [2/4] → [3/4] → [4/4] STOP
+   - Monday: [0/10] → [1/10] → [2/10] → ... → [10/10] STOP
+   - Tuesday: [0/10] → [1/10] → [2/10] → ... → [10/10] STOP
    - And so on for all 7 days...
 
    **RULE #1: ZERO OVERLAPS - THIS IS NON-NEGOTIABLE**
@@ -171,20 +171,50 @@ INSTRUCTIONS:
    Step 3: Find a time slot that comes AFTER all existing events (or BEFORE all of them)
    Step 4: Add AT LEAST 15 minutes buffer between the end of one event and start of next
 
-   VALID EXAMPLE for Monday (Max 4 events):
-   ✓ Event 1: 09:00-11:00 (Deep Work Session - GitHub project)
-   ✓ Event 2: 11:30-12:30 (Team Standup) ← Starts 30 min after Event 1 ends
-   ✓ Event 3: 13:00-14:00 (Lunch Break) ← Starts 30 min after Event 2 ends
-   ✓ Event 4: 17:00-18:30 (Exercise & Recovery) ← Starts 3 hours after Event 3 ends
+   **RULE #1.5: SPREAD EVENTS THROUGHOUT EACH DAY - CRITICAL**
+   ═══════════════════════════════════════════════════════════
+   ⚠️ DO NOT CLUSTER ALL EVENTS IN ONE PART OF THE DAY ⚠️
 
-   That's it for Monday! 4 events max, no overlaps, good spacing.
+   Events MUST be distributed across the full day when possible:
+   - **Morning**: 06:00-12:00 (early activities, morning routines, deep work)
+   - **Afternoon**: 12:00-17:00 (meetings, collaborative work, lunch, mid-day activities)
+   - **Evening**: 17:00-23:00 (exercise, personal time, wind-down)
+
+   **DISTRIBUTION STRATEGY:**
+   - For days with 5-7 events: Spread across morning, mid-day, afternoon, and evening
+   - For days with 8-10 events: Fill the entire day from morning to evening with varied activities
+   - Include short events (15-30 min breaks, meals) and longer events (1-3 hour work blocks)
+   - Avoid clustering all events in a single time period
+   - Space events with meaningful gaps (15-60 minutes) between them when possible
+   - Mix event types throughout the day (work, breaks, meals, exercise, personal)
+
+   **VALID EXAMPLE for Monday (8 events, well-distributed):**
+   ✓ Event 1: 07:00-07:30 (Morning Routine) ← EARLY MORNING
+   ✓ Event 2: 08:00-10:00 (Deep Work - GitHub Project) ← MORNING
+   ✓ Event 3: 10:15-10:30 (Coffee Break) ← MORNING
+   ✓ Event 4: 11:00-12:30 (Team Standup & Planning) ← LATE MORNING
+   ✓ Event 5: 12:30-13:30 (Lunch Break) ← MID-DAY
+   ✓ Event 6: 14:00-16:00 (Deep Work - Linear Task) ← AFTERNOON
+   ✓ Event 7: 16:30-17:00 (Email & Admin) ← LATE AFTERNOON
+   ✓ Event 8: 18:00-19:30 (Exercise & Recovery) ← EVENING
+
+   Perfect distribution: Events span from 7 AM to 7:30 PM with varied durations and good spacing!
+
+   **INVALID EXAMPLE (DO NOT CLUSTER LIKE THIS):**
+   ❌ Event 1: 09:00-10:00 (Deep Work)
+   ❌ Event 2: 10:15-11:00 (Meeting) ← TOO CLOSE, CLUSTERED
+   ❌ Event 3: 11:15-12:00 (Review) ← TOO CLOSE, CLUSTERED
+   ❌ Event 4: 12:30-13:00 (Lunch) ← ALL EVENTS IN ONE MORNING WINDOW
+
+   This is wrong! All events happen in 4 hours (9 AM - 1 PM), leaving the rest of the day empty.
+   Spread them out across morning, afternoon, and evening instead!
 
    INVALID EXAMPLE (DO NOT DO THIS):
    ❌ Event 1: 09:00-12:00 (Deep Work)
    ❌ Event 2: 10:00-11:00 (Meeting) ← WRONG! Overlaps with Event 1
    ❌ Event 3: 11:30-12:30 (Exercise) ← WRONG! Overlaps with Event 1
    ❌ Event 4: 12:00-13:00 (Lunch) ← WRONG! Overlaps with Events 1 and 3
-   ❌ Event 5: 14:00-15:00 (Review) ← WRONG! 5 events in one day (max is 4)
+   ❌ Event 11: 14:00-15:00 (Review) ← WRONG! 11 events in one day (max is 10)
 
    **WHY THIS MATTERS:**
    You can only do ONE thing at a time. It is physically impossible to be in a meeting
@@ -203,6 +233,9 @@ INSTRUCTIONS:
    - Respect typical work hours (9am-6pm for work, flexible for personal)
    - Schedule demanding work during high-energy periods
    - Add buffer time before Linear task deadlines
+   - **CRITICAL: Spread events across full day** - Don't cluster all events in morning or afternoon
+   - **Use time gaps strategically** - Space events 1-3 hours apart to allow for natural transitions
+   - **Distribute across time zones** - Morning activities, afternoon work, evening wellness/personal
 
 4. EVENT DETAILS:
    Each event must include:
@@ -318,22 +351,25 @@ INSTRUCTIONS:
 
    **EVENT COUNT REQUIREMENTS**
    ═══════════════════════════════════════════════════════════
-   - **MAXIMUM 4 events per day** - NO EXCEPTIONS
-   - **MINIMUM 2 events per day** - EVERY day must be covered
-   - **Total for the week: 7-28 events** (2-4 events/day × 7 days)
-   - Focus on the MOST IMPORTANT activities for each day
-   - Longer, meaningful events are better than many short ones
+   - **MAXIMUM 10 events per day** - NO EXCEPTIONS
+   - **MINIMUM 5 events per day** - EVERY day must be covered
+   - **Total for the week: 35-70 events** (5-10 events/day × 7 days)
+   - Create a FULL, REALISTIC daily schedule with varied activities
+   - Mix short events (15-30 min breaks, meals) with longer events (1-3 hour work blocks)
 
    **EVENT DISTRIBUTION:**
    - Spread events across all 7 days of the week
-   - **First priority**: Ensure every day has at least 2 events
-   - **Second priority**: Add additional events (up to 4) to days that need more structure
-   - Weekends can have 1-2 events, weekdays typically 2-4 events
+   - **First priority**: Ensure every day has at least 5 events
+   - **Second priority**: Add additional events (up to 10) to create comprehensive daily schedules
+   - Weekends should have 5-7 events (lighter but structured), weekdays typically 7-10 events
+   - **Temporal distribution**: For each day, spread events across morning (06:00-12:00), afternoon (12:00-17:00), and evening (17:00-23:00)
+   - Avoid clustering: Don't put all events for a day in a single time period
 
-   **QUALITY OVER QUANTITY:**
+   **QUALITY AND VARIETY:**
    - Each event should be significant and purposeful
    - Ensure variety in event types across the week
-   - Include realistic time durations (1-4 hours typically)
+   - Include realistic time durations (15 min breaks to 3 hour work blocks)
+   - Include daily essentials: meals, breaks, exercise, work, personal time
    - Add helpful descriptions that explain the purpose
    - Consider energy levels throughout the day
    - Balance structure with flexibility
@@ -342,17 +378,25 @@ INSTRUCTIONS:
    ⚠️ BEFORE YOU RETURN THE JSON, DO THIS FINAL CHECK:
 
    For EACH day in the week:
-   a) Count events for that day - MUST BE between 2 and 4 (inclusive)
+   a) Count events for that day - MUST BE between 5 and 10 (inclusive)
    b) List all events for that day sorted by start_time
    c) Verify each event ENDS before the next event STARTS
    d) Verify at least 15 minutes between consecutive events
-   e) If ANY day has 0 events, ADD at least two meaningful events
-   f) If ANY day has >4 events, REMOVE the least important ones
-   g) If ANY overlap found, FIX IT by adjusting times or removing events
+   e) **Check temporal distribution**: Ensure events are spread across the day, not clustered
+      - For 5-7 events: Should span morning, afternoon, and evening with varied spacing
+      - For 8-10 events: Should fill the entire day from early morning to evening
+      - Events should include mix of short (15-30 min) and long (1-3 hour) durations
+      - If all events fit in a single 4-hour window, REDISTRIBUTE them across the day
+   f) If ANY day has <5 events, ADD more events to reach minimum of 5
+   g) If ANY day has >10 events, REMOVE the least important ones
+   h) If ANY overlap found, FIX IT by adjusting times or removing events
+   i) If events are clustered in one part of the day, REDISTRIBUTE them
 
    ONLY return the JSON after confirming:
    - ZERO overlaps exist
-   - EVERY day has 2-4 events (no day is empty, no day exceeds 4)
+   - EVERY day has 5-10 events (no day has fewer than 5, no day exceeds 10)
+   - Events are distributed across the full day (not all clustered in one time period)
+   - Mix of event types and durations throughout each day
 
 STRICT JSON OUTPUT:
 Return a single JSON object exactly of the form:
@@ -384,7 +428,7 @@ with each event conforming to the structure above. No prose before or after the 
         # Use streaming API with web search capability
         try:
             stream = await client.chat.completions.create(
-                model="google/gemini-2.5-flash",
+                model="google/gemini-2.5-pro",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Generate a balanced weekly schedule focused on {goals_text}. Include work, wellness, and personal time."}
@@ -457,7 +501,7 @@ with each event conforming to the structure above. No prose before or after the 
                                     events_to_validate = same_day_events + [event_dict]
                                     validated_events, stats = validator.validate_and_fix_events(
                                         events_to_validate,
-                                        max_events_per_day=4
+                                        max_events_per_day=10
                                     )
 
                                     # Get the validated version of the current event (last one)
@@ -509,7 +553,7 @@ with each event conforming to the structure above. No prose before or after the 
                                             events_to_validate = same_day_events + [event_dict]
                                             validated_events, stats = validator.validate_and_fix_events(
                                                 events_to_validate,
-                                                max_events_per_day=4
+                                                max_events_per_day=10
                                             )
 
                                             # Get the validated version of the current event (last one)

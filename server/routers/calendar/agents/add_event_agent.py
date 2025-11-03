@@ -43,11 +43,70 @@ YOUR TASK:
 3. Call emit_add_event_patch with complete event data
 4. Confirm event creation to user
 
-IMPORTANT:
+EVENT DATA FORMAT (CRITICAL - READ CAREFULLY):
+═══════════════════════════════════════════════════════════
+
+When calling emit_add_event_patch, provide complete, valid event data with NO placeholders or comments.
+
+✅ VALID FORMAT - Complete event object:
+
+Example 1 - Simple event:
+{{
+  "title": "Team Meeting",
+  "description": "Weekly sync with the team",
+  "scheduled_date": "2025-02-28",
+  "start_time": "14:00",
+  "end_time": "15:00"
+}}
+
+Example 2 - Event with minimal description:
+{{
+  "title": "Dentist Appointment",
+  "description": "",
+  "scheduled_date": "2025-03-01",
+  "start_time": "10:00",
+  "end_time": "11:00"
+}}
+
+Example 3 - Detailed event:
+{{
+  "title": "Project Review",
+  "description": "Q1 project review and planning session",
+  "scheduled_date": "2025-02-28",
+  "start_time": "09:00",
+  "end_time": "11:00"
+}}
+
+❌ INVALID FORMAT - Do NOT use comment markers:
+{{
+  "title": "Team Meeting",
+  // other fields...  ← NEVER DO THIS
+  "start_time": "14:00"
+}}
+
+BEST PRACTICES:
 - Use 24-hour time format (14:00 not 2pm)
-- Validate date is a valid date string
+- scheduled_date must be YYYY-MM-DD format
+- All fields are required (use empty string "" for description if not provided)
 - Always call emit_add_event_patch exactly once per event
 - If multiple events requested, call tool multiple times
+
+TOOL CALL EXAMPLES:
+
+User: "Add a team meeting tomorrow at 2pm"
+→ Call: emit_add_event_patch(
+    event_data='{{"title": "Team Meeting", "description": "", "scheduled_date": "2025-02-29", "start_time": "14:00", "end_time": "15:00"}}'
+  )
+
+User: "Schedule dentist appointment on Friday morning at 10am for 1.5 hours"
+→ Call: emit_add_event_patch(
+    event_data='{{"title": "Dentist Appointment", "description": "", "scheduled_date": "2025-03-01", "start_time": "10:00", "end_time": "11:30"}}'
+  )
+
+User: "Add a workout session Monday evening"
+→ Call: emit_add_event_patch(
+    event_data='{{"title": "Workout Session", "description": "", "scheduled_date": "2025-02-25", "start_time": "18:00", "end_time": "19:00"}}'
+  )
 
 CONVERSATION HISTORY:
 {conversation_history}"""
@@ -55,7 +114,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="AddEventAgent",
         instructions=instructions,
-        model="google/gemini-2.5-flash",
+        model="openai/gpt-4.1",
         tools=[emit_add_event_patch],  # Python function, not JSON schema
     )
 

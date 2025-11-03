@@ -44,6 +44,7 @@ interface CalendarStore {
   removeTask: (taskId: string) => void;
   setProposedPatches: (patches: CalendarPatch[], conversationId?: string) => void;
   clearProposedPatches: () => void;
+  clearHighlights: () => void;
   revertChanges: (weekId: string) => Promise<void>;
 }
 
@@ -99,6 +100,14 @@ function generateMockTasks(): Task[] {
   return tasks;
 }
 
+// Helper function to calculate day of week index relative to week start (Monday)
+// Returns: 0=Monday, 1=Tuesday, ... 6=Sunday
+function calculateDayOfWeek(date: Date, weekStart: Date): number {
+  const msPerDay = 86400000;
+  const daysDiff = Math.floor((date.getTime() - weekStart.getTime()) / msPerDay);
+  return daysDiff;
+}
+
 // Helper function to apply patches to tasks array
 function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWeekStart: Date): Task[] {
   let updatedTasks = [...tasks];
@@ -106,9 +115,10 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
   patches.forEach(patch => {
     if (patch.op === 'add_event' && patch.complete_event) {
       // Add new event
-      const dayOfWeek = new Date(patch.complete_event.date).getDay();
-      const startTime = parseTimeString(patch.complete_event.start_time, new Date(patch.complete_event.date));
-      const endTime = parseTimeString(patch.complete_event.end_time, new Date(patch.complete_event.date));
+      const eventDate = new Date(patch.complete_event.date);
+      const dayOfWeek = calculateDayOfWeek(eventDate, currentWeekStart);
+      const startTime = parseTimeString(patch.complete_event.start_time, eventDate);
+      const endTime = parseTimeString(patch.complete_event.end_time, eventDate);
 
       const newTask: Task = {
         id: patch.patch_id, // Use patch_id as temporary ID
@@ -168,9 +178,10 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
         const fromDate = patch.from_day?.scheduled_date;
 
         if (taskDate === fromDate) {
-          const newDayOfWeek = new Date(patch.complete_event.date).getDay();
-          const newStartTime = parseTimeString(patch.complete_event.start_time, new Date(patch.complete_event.date));
-          const newEndTime = parseTimeString(patch.complete_event.end_time, new Date(patch.complete_event.date));
+          const eventDate = new Date(patch.complete_event.date);
+          const newDayOfWeek = calculateDayOfWeek(eventDate, currentWeekStart);
+          const newStartTime = parseTimeString(patch.complete_event.start_time, eventDate);
+          const newEndTime = parseTimeString(patch.complete_event.end_time, eventDate);
 
           return {
             ...task,
@@ -187,6 +198,9 @@ function applyPatchesToTasks(tasks: Task[], patches: CalendarPatch[], currentWee
 
   return updatedTasks;
 }
+
+// Track highlight timeout to clear it if new patches arrive
+let highlightTimeoutId: NodeJS.Timeout | null = null;
 
 export const useCalendarStore = create<CalendarStore>((set, get) => ({
   currentWeekStart: getCurrentWeekStart(),
@@ -324,11 +338,45 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
       conversationId: conversationId || null
     });
     console.log('[calendarStore] State updated. hasPendingChanges is now:', hasChanges);
+
+    // Clear any existing highlight timeout
+    if (highlightTimeoutId) {
+      clearTimeout(highlightTimeoutId);
+      highlightTimeoutId = null;
+    }
+
+    // Auto-clear highlights after 3 seconds
+    if (highlighted.size > 0) {
+      console.log('[calendarStore] Setting timeout to clear highlights in 3 seconds');
+      highlightTimeoutId = setTimeout(() => {
+        console.log('[calendarStore] Timeout reached, clearing highlights');
+        get().clearHighlights();
+      }, 3000);
+    }
   },
 
   clearProposedPatches: () => {
     console.log('[calendarStore] Clearing proposed patches');
+
+    // Clear any pending highlight timeout
+    if (highlightTimeoutId) {
+      clearTimeout(highlightTimeoutId);
+      highlightTimeoutId = null;
+    }
+
     set({ proposedPatches: [], highlightedTaskIds: new Set<string>() });
+  },
+
+  clearHighlights: () => {
+    console.log('[calendarStore] Clearing highlights');
+
+    // Clear the timeout reference
+    if (highlightTimeoutId) {
+      clearTimeout(highlightTimeoutId);
+      highlightTimeoutId = null;
+    }
+
+    set({ highlightedTaskIds: new Set<string>() });
   },
 
   revertChanges: async (weekId: string) => {
@@ -339,6 +387,12 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
     }
 
     console.log('[calendarStore] Reverting to previous state and syncing to backend');
+
+    // Clear any pending highlight timeout
+    if (highlightTimeoutId) {
+      clearTimeout(highlightTimeoutId);
+      highlightTimeoutId = null;
+    }
 
     // Swap the states (toggle behavior)
     const newPreviousTasks = [...tasks];

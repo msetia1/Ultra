@@ -32,25 +32,33 @@ export default function WeekView({
 
   return (
     <div
-      className={`
-        grid grid-cols-7 flex-1
-        ${className}
-      `}
+      className={`flex-1 overflow-y-auto ${className}`}
+      style={{
+        scrollbarWidth: 'none', // Firefox
+        msOverflowStyle: 'none', // IE/Edge
+      }}
     >
-      {weekDates.map((date, index) => (
-        <DayColumn
-          key={date.toISOString()}
-          date={date}
-          tasks={getTasksForDay(index)}
-          className={index === 6 ? 'border-r-0' : ''}
-          selectedTaskId={selectedTaskId}
-          onTaskClick={onTaskClick}
-          isChatOpen={isChatOpen}
-          isVisible={isVisible}
-          index={index}
-          highlightedTaskIds={highlightedTaskIds}
-        />
-      ))}
+      <style>{`
+        .flex-1.overflow-y-auto::-webkit-scrollbar {
+          display: none; /* Chrome/Safari */
+        }
+      `}</style>
+      <div className="grid grid-cols-7 min-h-full">
+        {weekDates.map((date, index) => (
+          <DayColumn
+            key={date.toISOString()}
+            date={date}
+            tasks={getTasksForDay(index)}
+            className={index === 6 ? 'border-r-0' : ''}
+            selectedTaskId={selectedTaskId}
+            onTaskClick={onTaskClick}
+            isChatOpen={isChatOpen}
+            isVisible={isVisible}
+            index={index}
+            highlightedTaskIds={highlightedTaskIds}
+          />
+        ))}
+      </div>
     </div>
   );
 }

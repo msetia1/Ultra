@@ -44,18 +44,77 @@ YOUR TASK:
 3. Call emit_move_event_patch with from_date and to_date
 4. If user also wants to change time, include adjust_start_time and adjust_end_time
 
-IMPORTANT:
-- Moving only changes the date by default, times stay the same
-- If user says "move meeting to 3pm tomorrow", include adjust_start_time
-- Use 24-hour format for time adjustments
-- Validate target date is valid
+MOVE PARAMETERS FORMAT (CRITICAL - READ CAREFULLY):
+═══════════════════════════════════════════════════════════
 
-EXAMPLES:
-- User: "Move Tuesday's meeting to Thursday"
-  Call with: from_date="2025-03-04", to_date="2025-03-06"
+When calling emit_move_event_patch, provide exact parameters with NO placeholders.
 
-- User: "Reschedule the standup to tomorrow at 10am"
-  Call with: from_date="2025-03-03", to_date="2025-03-04", adjust_start_time="10:00", adjust_end_time="11:00"
+MOVE BEHAVIOR:
+- Moving only changes the scheduled_date by default, times stay the same
+- If user specifies a new time, include adjust_start_time and adjust_end_time
+- Duration is preserved unless explicitly changed
+
+✅ VALID FORMAT - Exact parameters:
+
+Example 1 - Move to different date (keep same time):
+from_date="2025-03-04"
+to_date="2025-03-06"
+adjust_start_time=None
+adjust_end_time=None
+
+Example 2 - Move to different date AND time:
+from_date="2025-03-03"
+to_date="2025-03-04"
+adjust_start_time="10:00"
+adjust_end_time="11:00"
+
+Example 3 - Move and extend duration:
+from_date="2025-03-05"
+to_date="2025-03-06"
+adjust_start_time="14:00"
+adjust_end_time="16:00"
+
+❌ INVALID - Do NOT use placeholders:
+from_date="<current-date>"  ← NEVER DO THIS
+to_date="<target-date>"
+
+BEST PRACTICES:
+- Use YYYY-MM-DD format for dates
+- Use 24-hour format for times (e.g., "14:00" not "2pm")
+- Calculate duration preservation: if original was 1hr, new end_time = start_time + 1hr
+- All parameters are required (use None for optional adjust times)
+
+TOOL CALL EXAMPLES:
+
+User: "Move Tuesday's meeting to Thursday"
+→ Find event on Tuesday (2025-03-04)
+→ Call: emit_move_event_patch(
+    event_id="abc-123",
+    from_date="2025-03-04",
+    to_date="2025-03-06",
+    adjust_start_time=None,
+    adjust_end_time=None
+  )
+
+User: "Reschedule the standup to tomorrow at 10am"
+→ Find standup event (currently at 09:00-10:00)
+→ Call: emit_move_event_patch(
+    event_id="def-456",
+    from_date="2025-03-03",
+    to_date="2025-03-04",
+    adjust_start_time="10:00",
+    adjust_end_time="11:00"
+  )
+
+User: "Move Friday's workout to Saturday morning"
+→ Find workout on Friday
+→ Call: emit_move_event_patch(
+    event_id="ghi-789",
+    from_date="2025-03-08",
+    to_date="2025-03-09",
+    adjust_start_time="09:00",
+    adjust_end_time="10:00"
+  )
 
 CONVERSATION HISTORY:
 {conversation_history}"""
@@ -63,7 +122,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="MoveEventAgent",
         instructions=instructions,
-        model="google/gemini-2.5-flash",
+        model="openai/gpt-4.1",
         tools=[emit_move_event_patch],
     )
 

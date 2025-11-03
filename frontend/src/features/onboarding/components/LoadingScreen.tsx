@@ -64,8 +64,12 @@ export default function LoadingScreen() {
   }, [generateWeek, goals, values, projects, navigate]); // Add dependencies
 
   useEffect(() => {
+    console.log('[LoadingScreen] ⏰ Navigation useEffect triggered at', new Date().toISOString());
+    console.log('[LoadingScreen] ⏰ isComplete:', isComplete, 'events.length:', events.length);
+
     // Pre-populate calendar store and navigate when generation completes
     if (isComplete && events.length > 0) {
+      console.log('[LoadingScreen] ⏰ Condition met! Starting navigation at', new Date().toISOString());
       console.log('[LoadingScreen] Generation complete! Pre-populating calendar store...');
       console.log('[LoadingScreen] Generated events:', events.length);
 
@@ -80,13 +84,17 @@ export default function LoadingScreen() {
       // Pre-populate calendar store
       setTasks(tasks);
       console.log('[LoadingScreen] ✅ Calendar store populated, navigating...');
+      console.log('[LoadingScreen] ⏰ Calling navigate at', new Date().toISOString());
 
       // Now navigate - calendar will have data ready
       navigate('/calendar');
+      console.log('[LoadingScreen] ⏰ navigate() returned at', new Date().toISOString());
     } else if (isComplete && events.length === 0) {
       // Generation complete but no events - still navigate
       console.warn('[LoadingScreen] Generation complete but no events generated');
       navigate('/calendar');
+    } else {
+      console.log('[LoadingScreen] ⏰ Condition NOT met - waiting...');
     }
   }, [isComplete, events, navigate, setTasks]);
 

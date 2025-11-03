@@ -44,9 +44,12 @@ export function useWeekGeneration() {
 
         } else if (event.event_type === 'generation_complete') {
           // Mark generation as complete
+          console.log('[useWeekGeneration] ⏰ Generation complete received at', new Date().toISOString());
           console.log('[useWeekGeneration] Generation complete:', event.total_events, 'events');
+          console.log('[useWeekGeneration] ⏰ Setting isComplete=true at', new Date().toISOString());
           setTotalEvents(event.total_events);
           setIsComplete(true);
+          console.log('[useWeekGeneration] ⏰ Breaking from for-await loop at', new Date().toISOString());
           break;
 
         } else if (event.event_type === 'generation_error') {
@@ -62,7 +65,10 @@ export function useWeekGeneration() {
       console.error('[useWeekGeneration] Exception:', errorMessage);
       setError(errorMessage);
     } finally {
+      console.log('[useWeekGeneration] ⏰ Entering finally block at', new Date().toISOString());
+      console.log('[useWeekGeneration] ⏰ Setting isGenerating=false at', new Date().toISOString());
       setIsGenerating(false);
+      console.log('[useWeekGeneration] ⏰ Exiting finally block at', new Date().toISOString());
     }
   }, [isGenerating]);
 

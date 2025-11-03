@@ -47,7 +47,10 @@ export default function DayColumn({
       }}
     >
       {/* Day Header */}
-      <div className="bg-black border-b border-[#252525] px-4 pt-4 pb-px flex flex-col" style={{ paddingTop: '16px', paddingLeft: '16px', paddingRight: '16px', paddingBottom: '1px' }}>
+      <div
+        className="bg-black border-b border-[#252525] px-4 pt-4 pb-px flex flex-col sticky top-0 z-10"
+        style={{ paddingTop: '16px', paddingLeft: '16px', paddingRight: '16px', paddingBottom: '1px' }}
+      >
         <div className="flex items-center justify-between h-[24px]" style={{ height: '24px' }}>
           {/* Day Name */}
           <div className="font-inter font-normal text-[16px] leading-[24px] tracking-[-0.3125px] text-[#f7f9f7]">
@@ -64,7 +67,7 @@ export default function DayColumn({
       </div>
 
       {/* Tasks Container - Positioned based on time */}
-      <div className="flex-1 relative px-4">
+      <div className="relative px-4" style={{ minHeight: '800px' }}>
         <AnimatePresence mode="popLayout">
           {tasks.map((task) => {
             const topPosition = calculateTaskPosition(task.startTime);

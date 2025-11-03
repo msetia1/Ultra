@@ -55,7 +55,7 @@ CONVERSATION HISTORY:
     return Agent(
         name="RemoveEventAgent",
         instructions=instructions,
-        model="anthropic/claude-3.5-sonnet",
+        model="openai/gpt-4.1",
         tools=[emit_remove_event_patch],
     )
 
