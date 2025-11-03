@@ -19,6 +19,12 @@ export function useWeekGeneration() {
   ) => {
     console.log('[useWeekGeneration] Starting generation for week:', weekId);
 
+    // Prevent duplicate calls while generation is in progress
+    if (isGenerating) {
+      console.warn('[useWeekGeneration] ⚠️ Generation already in progress, ignoring duplicate call');
+      return;
+    }
+
     try {
       setIsGenerating(true);
       setEvents([]);
@@ -58,7 +64,7 @@ export function useWeekGeneration() {
     } finally {
       setIsGenerating(false);
     }
-  }, []);
+  }, [isGenerating]);
 
   const reset = useCallback(() => {
     setEvents([]);

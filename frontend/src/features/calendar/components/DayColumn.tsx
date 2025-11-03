@@ -1,8 +1,9 @@
 import { AnimatePresence } from 'framer-motion';
 import type { Task } from '../types/calendar.types';
 import { getDayInfo } from '../utils/dateHelpers';
-import { calculateTaskPosition, calculateTaskHeight } from '../utils/timeCalculations';
+import { calculateTaskPosition, calculateTaskHeight, calculateTaskLayout } from '../utils/timeCalculations';
 import AnimatedTaskCard from './AnimatedTaskCard';
+import { useMemo } from 'react';
 
 interface DayColumnProps {
   date: Date;
@@ -28,6 +29,9 @@ export default function DayColumn({
   highlightedTaskIds
 }: DayColumnProps) {
   const { name, number } = getDayInfo(date);
+
+  // Calculate layout for overlapping tasks
+  const taskLayout = useMemo(() => calculateTaskLayout(tasks), [tasks]);
 
   return (
     <div
@@ -66,6 +70,22 @@ export default function DayColumn({
             const topPosition = calculateTaskPosition(task.startTime);
             const height = calculateTaskHeight(task.startTime, task.endTime);
 
+            // Get layout info for overlapping tasks
+            const layout = taskLayout.get(task.id);
+
+            // Calculate horizontal positioning based on lane
+            let leftPosition = '50%';
+            let transformX = '-50%';
+            let widthPercent = 90; // Default width
+
+            if (layout && layout.totalLanes > 1) {
+              // Multiple lanes needed - position side by side
+              const laneWidth = 100 / layout.totalLanes;
+              leftPosition = `${layout.lane * laneWidth}%`;
+              transformX = '0%';
+              widthPercent = Math.min(90, laneWidth - 2); // Leave small gap between cards
+            }
+
             return (
               <AnimatedTaskCard
                 key={task.id}
@@ -77,8 +97,9 @@ export default function DayColumn({
                 style={{
                   top: `${topPosition}%`,
                   height: `${height}%`,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
+                  left: leftPosition,
+                  transform: `translateX(${transformX})`,
+                  width: `${widthPercent}%`,
                 }}
               />
             );

@@ -209,6 +209,38 @@ def github_callback(code: str, state: Optional[str] = None):
 			raise ValueError("GitHub OAuth response missing access token")
 
 		connect_github(TEST_USER_ID, access_token)
+
+		# Automatically select and backfill the 3 most recent repositories
+		try:
+			print(f"[GitHub] Auto-selecting 3 most recent repositories...")
+			repos_data = list_repositories(TEST_USER_ID, first=3)
+			repos = repos_data.get("items", [])
+
+			if repos:
+				# Save all 3 repos with include=true
+				repos_to_save = [
+					{
+						"repo_full_name": repo["repo_full_name"],
+						"default_branch": repo["default_branch"],
+						"include": True,
+						"raw_payload": repo
+					}
+					for repo in repos
+				]
+				upsert_result = upsert_selected_repositories(TEST_USER_ID, repos_to_save)
+				print(f"[GitHub] Saved {len(repos)} repositories: {[r['repo_full_name'] for r in repos]}")
+
+				# Trigger automatic backfill
+				backfill_result = backfill_selected_repositories_commits(
+					TEST_USER_ID,
+					limit_per_repo=100,
+					since_days=30
+				)
+				print(f"[GitHub] Backfill complete: {backfill_result.get('processed_repositories', 0)} repos processed")
+		except Exception as auto_err:  # noqa: BLE001
+			print(f"[GitHub] Warning: Auto-select/backfill failed but OAuth succeeded: {auto_err}")
+			# Don't fail the OAuth flow if auto-select fails
+
 		return _frontend_redirect("/onboarding?github=connected")
 	except Exception as err:  # noqa: BLE001
 		error_value = quote_plus(str(err))
@@ -294,7 +326,26 @@ def save_github_repositories(payload: dict = Body(...)):
 	repositories = (payload or {}).get("repositories")
 	try:
 		result = upsert_selected_repositories(TEST_USER_ID, repositories)
-		return {"status": "ok", **result}
+
+		# Automatically trigger commit backfill for selected repos
+		backfill_result = None
+		try:
+			print(f"[GitHub] Auto-triggering commit backfill for {result.get('inserted', 0) + result.get('updated', 0)} repositories")
+			backfill_result = backfill_selected_repositories_commits(
+				TEST_USER_ID,
+				limit_per_repo=100,
+				since_days=30
+			)
+			print(f"[GitHub] Backfill complete: {backfill_result.get('processed_repositories', 0)} repos processed")
+		except Exception as backfill_err:
+			print(f"[GitHub] Warning: Backfill failed but repo selection was saved: {backfill_err}")
+			# Don't fail the request if backfill fails - repos are still saved
+
+		return {
+			"status": "ok",
+			**result,
+			"backfill": backfill_result
+		}
 	except ValueError as err:
 		raise HTTPException(status_code=400, detail=str(err))
 	except Exception as err:  # noqa: BLE001

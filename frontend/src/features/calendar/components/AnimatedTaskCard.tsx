@@ -24,6 +24,13 @@ export default function AnimatedTaskCard({
 }: AnimatedTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
+  // Extract translateX from style.transform for framer-motion compatibility
+  const extractTranslateX = (transformString?: string): string => {
+    if (!transformString) return '-50%';
+    const match = transformString.match(/translateX\(([^)]+)\)/);
+    return match ? match[1] : '-50%';
+  };
+
   // Animation variants for smooth enter/exit/edit
   const cardVariants = {
     initial: {
@@ -137,7 +144,7 @@ export default function AnimatedTaskCard({
         "group relative cursor-pointer rounded-[10px] overflow-hidden",
         "border border-white/10 bg-black",
         "flex flex-col",
-        `absolute w-[90%] ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
+        `absolute ${isChatOpen ? 'max-w-[100px]' : 'max-w-[120px]'} px-[14px] pt-[6px] pb-[14px]`,
         isSelected && "invisible"
       )}
       style={{
@@ -146,7 +153,7 @@ export default function AnimatedTaskCard({
         height: style?.height,
         left: style?.left,
         // Use framer-motion's composable transform props
-        x: '-50%',  // Replaces translateX(-50%)
+        x: extractTranslateX(style?.transform as string),  // Extract from transform string
         y: isHovered ? -2 : 0,  // Replaces translateY(-2px) on hover
         backgroundColor: 'black',
         borderColor: isHighlighted ? 'rgba(252, 236, 201, 0.8)' : 'rgba(255, 255, 255, 0.1)',
@@ -157,6 +164,8 @@ export default function AnimatedTaskCard({
             : 'none',
         animation: isHighlighted ? 'pulse-glow 2s ease-in-out infinite' : 'none',
         transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
+        // Ensure width from style prop is respected, with fallback
+        width: style?.width || '90%',
       }}
     >
       {/* Radial gradient dot pattern background - visible on hover when not selected */}
