@@ -144,13 +144,13 @@ INSTRUCTIONS:
    **RULE #0: EVENT COUNT LIMITS**
    ═══════════════════════════════════════════════════════════
    - **MAXIMUM 4 events per day** - DO NOT exceed this limit
-   - **MINIMUM 1 event per day** - EVERY day must have at least one event
+   - **MINIMUM 2 events per day** - EVERY day must have at least two events
 
    Before creating ANY event, count how many events you have already created for that specific day.
    If the day already has 4 events, DO NOT add another event to that day.
    Move to a different day instead.
 
-   Ensure ALL 7 days get at least 1 event before adding more events to any single day.
+   Ensure ALL 7 days get at least 2 events before adding more events to any single day.
 
    Track your count as you generate:
    - Monday: [0/4] → [1/4] → [2/4] → [3/4] → [4/4] STOP
@@ -319,14 +319,14 @@ INSTRUCTIONS:
    **EVENT COUNT REQUIREMENTS**
    ═══════════════════════════════════════════════════════════
    - **MAXIMUM 4 events per day** - NO EXCEPTIONS
-   - **MINIMUM 1 event per day** - EVERY day must be covered
-   - **Total for the week: 7-28 events** (1-4 events/day × 7 days)
+   - **MINIMUM 2 events per day** - EVERY day must be covered
+   - **Total for the week: 7-28 events** (2-4 events/day × 7 days)
    - Focus on the MOST IMPORTANT activities for each day
    - Longer, meaningful events are better than many short ones
 
    **EVENT DISTRIBUTION:**
    - Spread events across all 7 days of the week
-   - **First priority**: Ensure every day has at least 1 event
+   - **First priority**: Ensure every day has at least 2 events
    - **Second priority**: Add additional events (up to 4) to days that need more structure
    - Weekends can have 1-2 events, weekdays typically 2-4 events
 
@@ -342,17 +342,17 @@ INSTRUCTIONS:
    ⚠️ BEFORE YOU RETURN THE JSON, DO THIS FINAL CHECK:
 
    For EACH day in the week:
-   a) Count events for that day - MUST BE between 1 and 4 (inclusive)
+   a) Count events for that day - MUST BE between 2 and 4 (inclusive)
    b) List all events for that day sorted by start_time
    c) Verify each event ENDS before the next event STARTS
    d) Verify at least 15 minutes between consecutive events
-   e) If ANY day has 0 events, ADD at least one meaningful event
+   e) If ANY day has 0 events, ADD at least two meaningful events
    f) If ANY day has >4 events, REMOVE the least important ones
    g) If ANY overlap found, FIX IT by adjusting times or removing events
 
    ONLY return the JSON after confirming:
    - ZERO overlaps exist
-   - EVERY day has 1-4 events (no day is empty, no day exceeds 4)
+   - EVERY day has 2-4 events (no day is empty, no day exceeds 4)
 
 STRICT JSON OUTPUT:
 Return a single JSON object exactly of the form:
