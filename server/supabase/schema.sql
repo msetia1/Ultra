@@ -10,7 +10,8 @@ CREATE TABLE public.Users (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   has_linear boolean NOT NULL DEFAULT false,
-  CONSTRAINT Users_pkey PRIMARY KEY (id)
+  CONSTRAINT Users_pkey PRIMARY KEY (id),
+  CONSTRAINT Users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.calendar_conversation_turns (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
